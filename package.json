@@ -1,7 +1,5 @@
 {
   "scripts": {
-    "start": "concurrently \"npm run dev --prefix monitoring-backend\" \"npm start --prefix monitoring-frontend\"",
-    "start:test": "concurrently \"cross-env DISABLE_RATE_LIMIT=true npm run dev --prefix monitoring-backend\" \"npm start --prefix monitoring-frontend\"",
     "build": "npm run build --prefix monitoring-frontend",
     "seed:test": "node monitoring-backend/scripts/seedTestUser.js",
     "cypress:open": "cypress open",

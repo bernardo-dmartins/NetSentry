@@ -29,12 +29,13 @@
   "description": "Sistema de Monitoramento de Dispositivos com WebSocket e Alertas em Tempo Real",
   "main": "src/app.js",
   "scripts": {
-    "start": "node run dev",
+    "start": "node src /app.js",
     "dev": "nodemon src/app.js",
     "test": "jest --coverage",
     "test:watch": "jest --watch",
     "db:sync": "node src/config/syncDatabase.js",
-    "db:seed": "node src/config/seedDatabase.js"
+    "db:seed": "node src/config/seedDatabase.js",
+    "postinstall": "cd ../monitoring-frontend && npm install && npm run build"
   },
   "keywords": [
     "monitoring",
