@@ -263,7 +263,13 @@ class Application {
     if (process.env.NODE_ENV === "production") {
       const path = require("path");
 
-      const frontendPath = path.join(__dirname, "../monitoring-frontend/build");
+      const frontendPath = path.join(
+        __dirname,
+        "..",
+        "..",
+        "monitoring-frontend",
+        "build"
+      );
 
       // Servir arquivos estáticos do React
       this.app.use(express.static(frontendPath));
