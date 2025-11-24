@@ -269,7 +269,7 @@ class Application {
       this.app.use(express.static(frontendPath));
 
       // Qualquer rota que não seja API → enviar index.html
-      this.app.get("/(.*)", (req, res) => {
+      this.app.use((req, res) => {
         res.sendFile(path.join(frontendPath, "index.html"));
       });
     }
