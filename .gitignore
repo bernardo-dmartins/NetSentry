@@ -1,0 +1,10 @@
+*.env
+database.sqlite
+node_modules/
+TODO.md
+Mock/
+cypress/
+logs/
+testEmail.js
+test-imports.js
+cypress.config.js

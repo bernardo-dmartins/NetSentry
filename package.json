@@ -1,0 +1,25 @@
+{
+  "scripts": {
+    "start": "concurrently \"npm run dev --prefix monitoring-backend\" \"npm start --prefix monitoring-frontend\"",
+    "start:test": "concurrently \"cross-env DISABLE_RATE_LIMIT=true npm run dev --prefix monitoring-backend\" \"npm start --prefix monitoring-frontend\"",
+    "build": "npm run build --prefix monitoring-frontend",
+    "seed:test": "node monitoring-backend/scripts/seedTestUser.js",
+    "cypress:open": "cypress open",
+    "cypress:run": "cypress run",
+    "cypress:run:chrome": "cypress run --browser chrome",
+    "cypress:run:firefox": "cypress run --browser firefox",
+    "cypress:run:headed": "cypress run --headed",
+    "test:e2e": "npm run seed:test && cross-env DISABLE_RATE_LIMIT=true start-server-and-test start:test http://localhost:3000 cypress:run",
+    "test:e2e:dev": "cross-env DISABLE_RATE_LIMIT=true start-server-and-test start:test http://localhost:3000 cypress:open",
+    "test:e2e:quick": "cypress run"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.1",
+    "cross-env": "^7.0.3",
+    "cypress": "^13.6.0",
+    "start-server-and-test": "^2.0.3"
+  },
+  "dependencies": {
+    "socket.io": "^4.8.1"
+  }
+}
