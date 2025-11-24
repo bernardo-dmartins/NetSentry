@@ -217,36 +217,48 @@ class Application {
    * Configure application routes
    */
   setupRoutes() {
-    // Health check
-    this.app.get('/health', this.healthCheck.bind(this));
+  // Health check
+  this.app.get('/health', this.healthCheck.bind(this));
 
-    // Redis health check (specific endpoint)
-    this.app.get('/health/redis', this.redisHealthCheck.bind(this));
+  // Redis health check (specific endpoint)
+  this.app.get('/health/redis', this.redisHealthCheck.bind(this));
 
-    // API documentation
-    this.app.use('/api-docs', swaggerUi.serve);
-    this.app.get('/api-docs', swaggerUi.setup(specs, {
-      customCss: '.swagger-ui .topbar { display: none }',
-      customSiteTitle: 'Monitoring System API Documentation'
-    }));
+  // API documentation
+  this.app.use('/api-docs', swaggerUi.serve);
+  this.app.get('/api-docs', swaggerUi.setup(specs, {
+    customCss: '.swagger-ui .topbar { display: none }',
+    customSiteTitle: 'Monitoring System API Documentation'
+  }));
 
-    // API routes
-    this.app.use('/api/auth', authRoutes);
-    this.app.use('/api/devices', deviceRoutes);
-    this.app.use('/api/alerts', alertRoutes);
+  // API routes
+  this.app.use('/api/auth', authRoutes);
+  this.app.use('/api/devices', deviceRoutes);
+  this.app.use('/api/alerts', alertRoutes);
 
-    // Root endpoint
-    this.app.get('/', this.rootEndpoint.bind(this));
+  // Root endpoint
+  this.app.get('/', this.rootEndpoint.bind(this));
 
-    // 404 handler
-    this.app.use(this.notFoundHandler.bind(this));
 
-    logger.info('Routes configured');
+  if (process.env.NODE_ENV === 'production') {
+    const path = require('path');
+
+    const frontendPath = path.join(__dirname, '../monitoring-frontend/build');
+
+    // Servir arquivos estáticos do React
+    this.app.use(express.static(frontendPath));
+
+    // Qualquer rota que não seja API → enviar index.html
+    this.app.get('*', (req, res) => {
+      res.sendFile(path.join(frontendPath, 'index.html'));
+    });
   }
+ 
+  // 404 handler
+  this.app.use(this.notFoundHandler.bind(this));
 
-  /**
-   * Health check endpoint
-   */
+  logger.info('Routes configured');
+}
+
   async healthCheck(req, res) {
     try {
       // Check database

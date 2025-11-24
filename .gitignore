@@ -8,3 +8,4 @@ logs/
 testEmail.js
 test-imports.js
 cypress.config.js
+build/
