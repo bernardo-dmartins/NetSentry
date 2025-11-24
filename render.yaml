@@ -7,14 +7,12 @@ services:
     plan: free
     branch: main
     buildCommand: |
-      cd monitoring-backend && npm install &&
-      cd ../monitoring-frontend && npm install && npm run build
+      cd monitoring-frontend && npm install && npm run build &&
+      cd ../monitoring-backend && npm install
     startCommand: cd monitoring-backend && npm start
     envVars:
       - key: NODE_ENV
         value: production
-      - key: PORT
-        value: 10000
       - key: JWT_SECRET
         generateValue: true
       - key: JWT_EXPIRES_IN
