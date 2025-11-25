@@ -20,6 +20,8 @@ class RedisClient {
         throw new Error("REDIS_URL not defined in environment variables");
       }
 
+      const isSecure = redisUrl.startsWith("rediss://");
+
       const config = {
         url: redisUrl,
         socket: {
@@ -43,11 +45,12 @@ class RedisClient {
         },
       };
 
-      // Adiciona senha se existir
-      if (redisPassword) {
-        config.password = redisPassword;
+      if (isSecure) {
+        config.socket.tls = true;
+        config.socket.rejectUnauthorized = false;
       }
 
+    
       this.client = redis.createClient(config);
 
       // Event handlers
