@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { Eye, EyeOff, Lock, Mail, User, AlertCircle, Loader, Activity } from 'lucide-react';
 
+const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
+
 export default function Login({ onLoginSuccess }) {
   const [isLogin, setIsLogin] = useState(true);
   const [loading, setLoading] = useState(false);
@@ -50,13 +52,20 @@ export default function Login({ onLoginSuccess }) {
             password: formData.password 
           };
 
-      const response = await fetch(`http://localhost:5000/api${endpoint}`, {
+      const response = await fetch(`${API_BASE_URL}${endpoint}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(body)
       });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        setError(errorData.message || `API Error: ${response.status} ${response.statusText}`);
+        setLoading(false);
+        return;
+      }
 
       const data = await response.json();
 
