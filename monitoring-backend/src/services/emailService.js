@@ -1,5 +1,5 @@
-const nodemailer = require('nodemailer');
-const logger = require('../utils/logger');
+const nodemailer = require("nodemailer");
+const logger = require("../utils/logger");
 
 class EmailService {
   constructor() {
@@ -10,40 +10,61 @@ class EmailService {
 
   initialize() {
     try {
-      if (!process.env.EMAIL_SERVICE || !process.env.EMAIL_USER || !process.env.EMAIL_PASSWORD) {
-        logger.warn('Email configurations not found. Emails disabled.');
+      if (
+        !process.env.EMAIL_SERVICE ||
+        !process.env.EMAIL_USER ||
+        !process.env.EMAIL_PASSWORD
+      ) {
+        logger.warn("Email configurations not found. Emails disabled.");
+        return;
+      }
+      const config = {};
+
+      if (process.env.EMAIL_HOST && process.env.EMAIL_PORT) {
+        // Uso explícito de Host/Porta
+        config.host = process.env.EMAIL_HOST;
+        config.port = parseInt(process.env.EMAIL_PORT, 10);
+        // Define 'secure' com base na porta (465 = SSL/true; 587 = TLS/false)
+        config.secure = config.port === 465;
+      } else if (process.env.EMAIL_SERVICE) {
+        // Fallback: Usa apenas o service (ex: 'gmail')
+        config.service = process.env.EMAIL_SERVICE;
+      } else {
+        logger.warn(
+          "Email service or host/port configurations not found. Emails disabled."
+        );
         return;
       }
 
-      this.transporter = nodemailer.createTransport({
-        service: process.env.EMAIL_SERVICE,
-        auth: {
-          user: process.env.EMAIL_USER,
-          pass: process.env.EMAIL_PASSWORD
-        }
-      });
+      // Adiciona autenticação para ambas as configurações
+      config.auth = {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASSWORD,
+      };
+
+      this.transporter = nodemailer.createTransport(config);
 
       this.initialized = true;
-      logger.info('Email service initialized');
-
+      logger.info(
+        "Email service initialized using explicit Host/Port or Service name."
+      );
     } catch (error) {
-      logger.error('Error initializing email service:', error);
+      logger.error("Error initializing email service:", error);
       this.initialized = false;
     }
   }
-
   /**
    * Enviar email de boas-vindas ao registrar
    */
   async sendWelcomeEmail(user) {
     if (!this.initialized) {
-      logger.warn('Email service not initialized. Skipping welcome email.');
+      logger.warn("Email service not initialized. Skipping welcome email.");
       return false;
     }
 
     try {
-      const subject = '🎉 Welcome to NetSentry Monitoring System!';
-      
+      const subject = "🎉 Welcome to NetSentry Monitoring System!";
+
       const html = `
         <!DOCTYPE html>
         <html>
@@ -120,11 +141,16 @@ class EmailService {
                   </tr>
                   <tr>
                     <td style="padding: 8px 0; font-weight: bold;">Role:</td>
-                    <td style="padding: 8px 0; text-transform: capitalize;">${user.role || 'user'}</td>
+                    <td style="padding: 8px 0; text-transform: capitalize;">${
+                      user.role || "user"
+                    }</td>
                   </tr>
                   <tr>
                     <td style="padding: 8px 0; font-weight: bold;">Registration Date:</td>
-                    <td style="padding: 8px 0;">${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</td>
+                    <td style="padding: 8px 0;">${new Date().toLocaleDateString(
+                      "en-US",
+                      { year: "numeric", month: "long", day: "numeric" }
+                    )}</td>
                   </tr>
                 </table>
               </div>
@@ -141,7 +167,9 @@ class EmailService {
               </div>
 
               <div style="text-align: center; margin: 30px 0;">
-                <a href="${process.env.FRONTEND_URL || 'http://localhost:3000'}" class="button">
+                <a href="${
+                  process.env.FRONTEND_URL || "http://localhost:3000"
+                }" class="button">
                   🚀 Access Your Dashboard
                 </a>
               </div>
@@ -161,8 +189,12 @@ class EmailService {
               <p style="margin: 5px 0;">This is an automated message, please do not reply to this email.</p>
               <p style="margin: 5px 0;">&copy; ${new Date().getFullYear()} NetSentry Monitoring System. All rights reserved.</p>
               <p style="margin: 15px 0 5px 0;">
-                <a href="${process.env.FRONTEND_URL || 'http://localhost:3000'}" style="color: #667eea; text-decoration: none;">Dashboard</a> | 
-                <a href="${process.env.FRONTEND_URL || 'http://localhost:3000'}/docs" style="color: #667eea; text-decoration: none;">Documentation</a>
+                <a href="${
+                  process.env.FRONTEND_URL || "http://localhost:3000"
+                }" style="color: #667eea; text-decoration: none;">Dashboard</a> | 
+                <a href="${
+                  process.env.FRONTEND_URL || "http://localhost:3000"
+                }/docs" style="color: #667eea; text-decoration: none;">Documentation</a>
               </p>
             </div>
           </div>
@@ -171,19 +203,20 @@ class EmailService {
       `;
 
       const mailOptions = {
-        from: `"NetSentry Monitoring" <${process.env.EMAIL_FROM || process.env.EMAIL_USER}>`,
+        from: `"NetSentry Monitoring" <${
+          process.env.EMAIL_FROM || process.env.EMAIL_USER
+        }>`,
         to: user.email,
         subject,
-        html
+        html,
       };
 
       await this.transporter.sendMail(mailOptions);
       logger.info(`Welcome email sent to ${user.email}`);
-      
-      return true;
 
+      return true;
     } catch (error) {
-      logger.error('Error sending welcome email:', error);
+      logger.error("Error sending welcome email:", error);
       return false;
     }
   }
@@ -193,13 +226,15 @@ class EmailService {
    */
   async sendAlertEmail(alert, device) {
     if (!this.initialized) {
-      logger.warn('Email service not initialized. Skipping send.');
+      logger.warn("Email service not initialized. Skipping send.");
       return false;
     }
 
     try {
-      const subject = `🚨 [${alert.level.toUpperCase()}] ${device.name} - ${alert.message}`;
-      
+      const subject = `🚨 [${alert.level.toUpperCase()}] ${device.name} - ${
+        alert.message
+      }`;
+
       const html = `
         <!DOCTYPE html>
         <html>
@@ -258,11 +293,15 @@ class EmailService {
             
             <div class="content">
               <div class="alert-box">
-                <h2 style="margin-top: 0; color: ${this.getLevelColor(alert.level)};">Alert Details</h2>
+                <h2 style="margin-top: 0; color: ${this.getLevelColor(
+                  alert.level
+                )};">Alert Details</h2>
                 <table>
                   <tr>
                     <td>Level:</td>
-                    <td><strong style="color: ${this.getLevelColor(alert.level)};">${alert.level.toUpperCase()}</strong></td>
+                    <td><strong style="color: ${this.getLevelColor(
+                      alert.level
+                    )};">${alert.level.toUpperCase()}</strong></td>
                   </tr>
                   <tr>
                     <td>Message:</td>
@@ -270,7 +309,10 @@ class EmailService {
                   </tr>
                   <tr>
                     <td>Time:</td>
-                    <td>${new Date(alert.timestamp).toLocaleString('en-US', { dateStyle: 'full', timeStyle: 'long' })}</td>
+                    <td>${new Date(alert.timestamp).toLocaleString("en-US", {
+                      dateStyle: "full",
+                      timeStyle: "long",
+                    })}</td>
                   </tr>
                 </table>
               </div>
@@ -284,7 +326,9 @@ class EmailService {
                   </tr>
                   <tr>
                     <td>IP Address:</td>
-                    <td><code style="background: #f5f5f5; padding: 2px 6px; border-radius: 3px;">${device.ip}</code></td>
+                    <td><code style="background: #f5f5f5; padding: 2px 6px; border-radius: 3px;">${
+                      device.ip
+                    }</code></td>
                   </tr>
                   <tr>
                     <td>Type:</td>
@@ -292,14 +336,20 @@ class EmailService {
                   </tr>
                   <tr>
                     <td>Status:</td>
-                    <td><strong style="color: ${this.getStatusColor(device.status)};">${device.status.toUpperCase()}</strong></td>
+                    <td><strong style="color: ${this.getStatusColor(
+                      device.status
+                    )};">${device.status.toUpperCase()}</strong></td>
                   </tr>
-                  ${device.responseTime ? `
+                  ${
+                    device.responseTime
+                      ? `
                   <tr>
                     <td>Response Time:</td>
                     <td>${Math.round(device.responseTime)}ms</td>
                   </tr>
-                  ` : ''}
+                  `
+                      : ""
+                  }
                 </table>
               </div>
 
@@ -310,7 +360,9 @@ class EmailService {
               </div>
 
               <div style="text-align: center;">
-                <a href="${process.env.FRONTEND_URL || 'http://localhost:3000'}" class="button">
+                <a href="${
+                  process.env.FRONTEND_URL || "http://localhost:3000"
+                }" class="button">
                   View Dashboard
                 </a>
               </div>
@@ -329,24 +381,25 @@ class EmailService {
       `;
 
       const mailOptions = {
-        from: `"NetSentry Alert" <${process.env.EMAIL_FROM || process.env.EMAIL_USER}>`,
+        from: `"NetSentry Alert" <${
+          process.env.EMAIL_FROM || process.env.EMAIL_USER
+        }>`,
         to: process.env.ALERT_EMAIL_TO,
         subject,
-        html
+        html,
       };
 
       const info = await this.transporter.sendMail(mailOptions);
 
       logger.info(`Alert email sent to ${process.env.ALERT_EMAIL_TO}`);
-      
+
       if (alert.update) {
         await alert.update({ emailSent: true });
       }
 
       return true;
-
     } catch (error) {
-      logger.error('Error sending alert email:', error);
+      logger.error("Error sending alert email:", error);
       return false;
     }
   }
@@ -356,14 +409,16 @@ class EmailService {
    */
   async sendTestEmail(to) {
     if (!this.initialized) {
-      throw new Error('Email service not initialized');
+      throw new Error("Email service not initialized");
     }
 
     try {
       const mailOptions = {
-        from: `"NetSentry Monitoring" <${process.env.EMAIL_FROM || process.env.EMAIL_USER}>`,
+        from: `"NetSentry Monitoring" <${
+          process.env.EMAIL_FROM || process.env.EMAIL_USER
+        }>`,
         to,
-        subject: '✅ Test Email - NetSentry Monitoring System',
+        subject: "✅ Test Email - NetSentry Monitoring System",
         html: `
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background: #f9f9f9;">
             <div style="background: #4CAF50; color: white; padding: 30px; text-align: center; border-radius: 8px;">
@@ -377,20 +432,22 @@ class EmailService {
                 <p style="margin: 10px 0 0 0;"><strong>✓</strong> Email Delivery: OK</p>
               </div>
               <p style="color: #666; margin-top: 30px; font-size: 12px;">
-                Test time: ${new Date().toLocaleString('en-US', { dateStyle: 'full', timeStyle: 'long' })}
+                Test time: ${new Date().toLocaleString("en-US", {
+                  dateStyle: "full",
+                  timeStyle: "long",
+                })}
               </p>
             </div>
           </div>
-        `
+        `,
       };
 
       await this.transporter.sendMail(mailOptions);
       logger.info(`Test email sent to ${to}`);
-      
-      return true;
 
+      return true;
     } catch (error) {
-      logger.error('Error sending test email:', error);
+      logger.error("Error sending test email:", error);
       throw error;
     }
   }
@@ -409,7 +466,7 @@ class EmailService {
           <div style="background: #2196F3; color: white; padding: 30px; text-align: center;">
             <h1 style="margin: 0;">📊 Daily Monitoring Report</h1>
             <p style="margin: 10px 0 0 0; font-size: 18px;">
-              ${new Date().toLocaleDateString('en-US', { dateStyle: 'full' })}
+              ${new Date().toLocaleDateString("en-US", { dateStyle: "full" })}
             </p>
           </div>
 
@@ -418,24 +475,34 @@ class EmailService {
 
             <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; margin-bottom: 30px;">
               <div style="background: #4CAF50; color: white; padding: 20px; text-align: center; border-radius: 8px;">
-                <h3 style="margin: 0; font-size: 36px;">${stats.devices.online}</h3>
+                <h3 style="margin: 0; font-size: 36px;">${
+                  stats.devices.online
+                }</h3>
                 <p style="margin: 10px 0 0 0; font-size: 14px;">Online</p>
               </div>
               <div style="background: #F44336; color: white; padding: 20px; text-align: center; border-radius: 8px;">
-                <h3 style="margin: 0; font-size: 36px;">${stats.devices.offline}</h3>
+                <h3 style="margin: 0; font-size: 36px;">${
+                  stats.devices.offline
+                }</h3>
                 <p style="margin: 10px 0 0 0; font-size: 14px;">Offline</p>
               </div>
               <div style="background: #FF9800; color: white; padding: 20px; text-align: center; border-radius: 8px;">
-                <h3 style="margin: 0; font-size: 36px;">${stats.devices.warning}</h3>
+                <h3 style="margin: 0; font-size: 36px;">${
+                  stats.devices.warning
+                }</h3>
                 <p style="margin: 10px 0 0 0; font-size: 14px;">Warning</p>
               </div>
               <div style="background: #2196F3; color: white; padding: 20px; text-align: center; border-radius: 8px;">
-                <h3 style="margin: 0; font-size: 36px;">${stats.devices.total}</h3>
+                <h3 style="margin: 0; font-size: 36px;">${
+                  stats.devices.total
+                }</h3>
                 <p style="margin: 10px 0 0 0; font-size: 14px;">Total</p>
               </div>
             </div>
 
-            ${alerts.length > 0 ? `
+            ${
+              alerts.length > 0
+                ? `
               <h2 style="color: #333;">Active Alerts (${alerts.length})</h2>
               <table style="width: 100%; background: white; border-collapse: collapse; margin-bottom: 30px; border-radius: 8px; overflow: hidden;">
                 <thead>
@@ -446,21 +513,36 @@ class EmailService {
                   </tr>
                 </thead>
                 <tbody>
-                  ${alerts.slice(0, 10).map(alert => `
+                  ${alerts
+                    .slice(0, 10)
+                    .map(
+                      (alert) => `
                     <tr style="border-bottom: 1px solid #eee;">
                       <td style="padding: 12px;">${alert.device}</td>
                       <td style="padding: 12px;">${alert.message}</td>
                       <td style="padding: 12px; text-align: center;">
-                        <span style="background: ${this.getLevelColor(alert.level)}; color: white; padding: 5px 15px; border-radius: 20px; font-size: 12px; font-weight: bold;">
+                        <span style="background: ${this.getLevelColor(
+                          alert.level
+                        )}; color: white; padding: 5px 15px; border-radius: 20px; font-size: 12px; font-weight: bold;">
                           ${alert.level.toUpperCase()}
                         </span>
                       </td>
                     </tr>
-                  `).join('')}
+                  `
+                    )
+                    .join("")}
                 </tbody>
               </table>
-              ${alerts.length > 10 ? `<p style="color: #666;">And ${alerts.length - 10} more alerts...</p>` : ''}
-            ` : '<div style="background: #e8f5e9; border-left: 4px solid #4CAF50; padding: 20px; border-radius: 4px;"><p style="margin: 0; color: #2e7d32;"><strong>✓</strong> No active alerts at the moment. All systems operational! 🎉</p></div>'}
+              ${
+                alerts.length > 10
+                  ? `<p style="color: #666;">And ${
+                      alerts.length - 10
+                    } more alerts...</p>`
+                  : ""
+              }
+            `
+                : '<div style="background: #e8f5e9; border-left: 4px solid #4CAF50; padding: 20px; border-radius: 4px;"><p style="margin: 0; color: #2e7d32;"><strong>✓</strong> No active alerts at the moment. All systems operational! 🎉</p></div>'
+            }
 
             <p style="margin-top: 40px; color: #666; font-size: 12px; text-align: center;">
               This is an automatic daily report from NetSentry Monitoring System.
@@ -470,19 +552,20 @@ class EmailService {
       `;
 
       const mailOptions = {
-        from: `"NetSentry Reports" <${process.env.EMAIL_FROM || process.env.EMAIL_USER}>`,
+        from: `"NetSentry Reports" <${
+          process.env.EMAIL_FROM || process.env.EMAIL_USER
+        }>`,
         to: process.env.ALERT_EMAIL_TO,
-        subject: `📊 Daily Report - ${new Date().toLocaleDateString('en-US')}`,
-        html
+        subject: `📊 Daily Report - ${new Date().toLocaleDateString("en-US")}`,
+        html,
       };
 
       await this.transporter.sendMail(mailOptions);
       logger.info(`Daily report sent to ${process.env.ALERT_EMAIL_TO}`);
-      
-      return true;
 
+      return true;
     } catch (error) {
-      logger.error('Error sending daily report:', error);
+      logger.error("Error sending daily report:", error);
       return false;
     }
   }
@@ -492,14 +575,14 @@ class EmailService {
    */
   getLevelColor(level) {
     const colors = {
-      disaster: '#F44336',
-      critical: '#E91E63',
-      error: '#FF5722',
-      warning: '#FF9800',
-      information: '#2196F3',
-      info: '#2196F3'
+      disaster: "#F44336",
+      critical: "#E91E63",
+      error: "#FF5722",
+      warning: "#FF9800",
+      information: "#2196F3",
+      info: "#2196F3",
     };
-    return colors[level.toLowerCase()] || '#9E9E9E';
+    return colors[level.toLowerCase()] || "#9E9E9E";
   }
 
   /**
@@ -507,11 +590,11 @@ class EmailService {
    */
   getStatusColor(status) {
     const colors = {
-      online: '#4CAF50',
-      offline: '#F44336',
-      warning: '#FF9800'
+      online: "#4CAF50",
+      offline: "#F44336",
+      warning: "#FF9800",
     };
-    return colors[status] || '#9E9E9E';
+    return colors[status] || "#9E9E9E";
   }
 
   /**
