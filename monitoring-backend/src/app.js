@@ -528,7 +528,9 @@ class Application {
     try {
       await this.initialize();
 
-      this.server.listen(this.port, () => {
+      const HOST = "0.0.0.0"; // Adição: Escutar em todas as interfaces
+
+      this.server.listen(this.port, HOST, () => {
         this.logServerInfo();
       });
 
