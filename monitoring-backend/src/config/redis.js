@@ -1,5 +1,5 @@
-const redis = require('redis');
-const logger = require('../utils/logger');
+const redis = require("redis");
+const logger = require("../utils/logger");
 
 class RedisClient {
   constructor() {
@@ -7,7 +7,7 @@ class RedisClient {
     this.isConnected = false;
     this.reconnectAttempts = 0;
     this.maxReconnectAttempts = 10;
-    this.namespace = process.env.REDIS_NAMESPACE || 'netsentry';
+    this.namespace = process.env.REDIS_NAMESPACE || "netsentry";
   }
 
   /**
@@ -15,8 +15,10 @@ class RedisClient {
    */
   async connect() {
     try {
-      const redisUrl = process.env.REDIS_URL || 'redis://localhost:6379';
-      const redisPassword = process.env.REDIS_PASSWORD;
+      const redisUrl = process.env.REDIS_URL;
+      if (!redisUrl) {
+        throw new Error("REDIS_URL not defined in environment variables");
+      }
 
       const config = {
         url: redisUrl,
@@ -24,17 +26,21 @@ class RedisClient {
           connectTimeout: 10000,
           reconnectStrategy: (retries) => {
             this.reconnectAttempts = retries;
-            
+
             if (retries > this.maxReconnectAttempts) {
-              logger.error(`Redis: Max reconnect attempts (${this.maxReconnectAttempts}) reached`);
+              logger.error(
+                `Redis: Max reconnect attempts (${this.maxReconnectAttempts}) reached`
+              );
               return false; // Para de tentar reconectar
             }
-            
+
             const delay = Math.min(retries * 100, 3000);
-            logger.warn(`Redis: Reconnecting... Attempt ${retries}/${this.maxReconnectAttempts} (delay: ${delay}ms)`);
+            logger.warn(
+              `Redis: Reconnecting... Attempt ${retries}/${this.maxReconnectAttempts} (delay: ${delay}ms)`
+            );
             return delay;
-          }
-        }
+          },
+        },
       };
 
       // Adiciona senha se existir
@@ -45,36 +51,35 @@ class RedisClient {
       this.client = redis.createClient(config);
 
       // Event handlers
-      this.client.on('error', (err) => {
-        logger.error('Redis Error:', err.message);
+      this.client.on("error", (err) => {
+        logger.error("Redis Error:", err.message);
         this.isConnected = false;
       });
 
-      this.client.on('connect', () => {
-        logger.info('Redis: Connecting...');
+      this.client.on("connect", () => {
+        logger.info("Redis: Connecting...");
       });
 
-      this.client.on('ready', () => {
-        logger.info('Redis: Ready and operational');
+      this.client.on("ready", () => {
+        logger.info("Redis: Ready and operational");
         this.isConnected = true;
         this.reconnectAttempts = 0;
       });
 
-      this.client.on('reconnecting', () => {
-        logger.warn('Redis: Reconnecting...');
+      this.client.on("reconnecting", () => {
+        logger.warn("Redis: Reconnecting...");
         this.isConnected = false;
       });
 
-      this.client.on('end', () => {
-        logger.info('Redis: Connection closed');
+      this.client.on("end", () => {
+        logger.info("Redis: Connection closed");
         this.isConnected = false;
       });
 
       await this.client.connect();
-      
     } catch (error) {
-      logger.error('Failed to connect to Redis:', error.message);
-      logger.warn('Application will continue without Redis cache');
+      logger.error("Failed to connect to Redis:", error.message);
+      logger.warn("Application will continue without Redis cache");
       // Não lança erro - aplicação continua sem Redis
     }
   }
@@ -86,10 +91,10 @@ class RedisClient {
     try {
       if (this.client && this.isConnected) {
         await this.client.quit();
-        logger.info('Redis disconnected gracefully');
+        logger.info("Redis disconnected gracefully");
       }
     } catch (error) {
-      logger.error('Error disconnecting Redis:', error.message);
+      logger.error("Error disconnecting Redis:", error.message);
       // Force disconnect
       if (this.client) {
         await this.client.disconnect();
@@ -109,7 +114,7 @@ class RedisClient {
    */
   _checkConnection() {
     if (!this.isConnected || !this.client) {
-      logger.debug('Redis not available, operation skipped');
+      logger.debug("Redis not available, operation skipped");
       return false;
     }
     return true;
@@ -126,14 +131,14 @@ class RedisClient {
     try {
       const fullKey = this._getKey(key);
       const serializedValue = JSON.stringify(value);
-      
+
       if (expireInSeconds) {
         await this.client.setEx(fullKey, expireInSeconds, serializedValue);
       } else {
         await this.client.set(fullKey, serializedValue);
       }
-      
-      logger.debug(`Redis SET: ${fullKey} (TTL: ${expireInSeconds || 'none'})`);
+
+      logger.debug(`Redis SET: ${fullKey} (TTL: ${expireInSeconds || "none"})`);
       return true;
     } catch (error) {
       logger.error(`Redis SET error for key ${key}:`, error.message);
@@ -150,12 +155,12 @@ class RedisClient {
     try {
       const fullKey = this._getKey(key);
       const value = await this.client.get(fullKey);
-      
+
       if (value) {
         logger.debug(`Redis HIT: ${fullKey}`);
         return JSON.parse(value);
       }
-      
+
       logger.debug(`Redis MISS: ${fullKey}`);
       return null;
     } catch (error) {
@@ -172,9 +177,9 @@ class RedisClient {
 
     try {
       const keys = Array.isArray(key) ? key : [key];
-      const fullKeys = keys.map(k => this._getKey(k));
+      const fullKeys = keys.map((k) => this._getKey(k));
       const deleted = await this.client.del(fullKeys);
-      
+
       logger.debug(`Redis DEL: ${deleted} key(s) deleted`);
       return deleted;
     } catch (error) {
@@ -207,11 +212,11 @@ class RedisClient {
     try {
       const fullKey = this._getKey(key);
       const value = await this.client.incr(fullKey);
-      
+
       if (expireInSeconds && value === 1) {
         await this.client.expire(fullKey, expireInSeconds);
       }
-      
+
       return value;
     } catch (error) {
       logger.error(`Redis INCR error for key ${key}:`, error.message);
@@ -281,7 +286,7 @@ class RedisClient {
   /**
    * Adiciona item à fila
    */
-  async pushToQueue(queueName, data, priority = 'normal') {
+  async pushToQueue(queueName, data, priority = "normal") {
     if (!this._checkConnection()) return false;
 
     try {
@@ -290,17 +295,17 @@ class RedisClient {
         data,
         priority,
         timestamp: Date.now(),
-        id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+        id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       };
-      
+
       const serializedData = JSON.stringify(item);
-      
-      if (priority === 'high') {
+
+      if (priority === "high") {
         await this.client.rPush(fullQueue, serializedData);
       } else {
         await this.client.lPush(fullQueue, serializedData);
       }
-      
+
       return true;
     } catch (error) {
       logger.error(`Redis queue push error for ${queueName}:`, error.message);
@@ -316,7 +321,7 @@ class RedisClient {
 
     try {
       const fullQueue = this._getKey(`queue:${queueName}`);
-      
+
       let result;
       if (timeout > 0) {
         // Blocking pop com timeout
@@ -325,7 +330,7 @@ class RedisClient {
       } else {
         result = await this.client.rPop(fullQueue);
       }
-      
+
       return result ? JSON.parse(result) : null;
     } catch (error) {
       logger.error(`Redis queue pop error for ${queueName}:`, error.message);
@@ -360,29 +365,34 @@ class RedisClient {
       const fullPattern = this._getKey(pattern);
       let cursor = 0;
       let deletedCount = 0;
-      
+
       do {
         const result = await this.client.scan(cursor, {
           MATCH: fullPattern,
-          COUNT: 100
+          COUNT: 100,
         });
-        
+
         cursor = result.cursor;
         const keys = result.keys;
-        
+
         if (keys.length > 0) {
           await this.client.del(keys);
           deletedCount += keys.length;
         }
       } while (cursor !== 0);
-      
+
       if (deletedCount > 0) {
-        logger.info(`✅ Invalidated ${deletedCount} cache keys matching pattern: ${pattern}`);
+        logger.info(
+          `✅ Invalidated ${deletedCount} cache keys matching pattern: ${pattern}`
+        );
       }
-      
+
       return deletedCount;
     } catch (error) {
-      logger.error(`Redis pattern invalidation error for ${pattern}:`, error.message);
+      logger.error(
+        `Redis pattern invalidation error for ${pattern}:`,
+        error.message
+      );
       return 0;
     }
   }
@@ -430,7 +440,7 @@ class RedisClient {
     try {
       const fullKey = this._getKey(key);
       const data = await this.client.hGetAll(fullKey);
-      
+
       // Parse JSON values
       const parsed = {};
       for (const [field, value] of Object.entries(data)) {
@@ -440,7 +450,7 @@ class RedisClient {
           parsed[field] = value;
         }
       }
-      
+
       return parsed;
     } catch (error) {
       logger.error(`Redis HGETALL error:`, error.message);
@@ -458,9 +468,9 @@ class RedisClient {
 
     try {
       const result = await this.client.ping();
-      return result === 'PONG';
+      return result === "PONG";
     } catch (error) {
-      logger.error('Redis ping error:', error.message);
+      logger.error("Redis ping error:", error.message);
       return false;
     }
   }
@@ -475,7 +485,7 @@ class RedisClient {
       const info = await this.client.info();
       return info;
     } catch (error) {
-      logger.error('Redis info error:', error.message);
+      logger.error("Redis info error:", error.message);
       return null;
     }
   }
@@ -487,25 +497,25 @@ class RedisClient {
     if (!this._checkConnection()) {
       return {
         connected: false,
-        reconnectAttempts: this.reconnectAttempts
+        reconnectAttempts: this.reconnectAttempts,
       };
     }
 
     try {
-      const info = await this.client.info('stats');
-      const memory = await this.client.info('memory');
-      
+      const info = await this.client.info("stats");
+      const memory = await this.client.info("memory");
+
       return {
         connected: this.isConnected,
         reconnectAttempts: this.reconnectAttempts,
         info,
-        memory
+        memory,
       };
     } catch (error) {
-      logger.error('Redis stats error:', error.message);
+      logger.error("Redis stats error:", error.message);
       return {
         connected: this.isConnected,
-        error: error.message
+        error: error.message,
       };
     }
   }
@@ -517,9 +527,9 @@ class RedisClient {
     if (!this._checkConnection()) return 0;
 
     try {
-      return await this.invalidatePattern('*');
+      return await this.invalidatePattern("*");
     } catch (error) {
-      logger.error('Redis flush namespace error:', error.message);
+      logger.error("Redis flush namespace error:", error.message);
       return 0;
     }
   }
