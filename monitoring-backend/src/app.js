@@ -126,7 +126,7 @@ class Application {
     // CORS
     this.app.use(
       cors({
-        origin: process.env.CORS_ORIGIN || "http://localhost:3000",
+        origin: process.env.CORS_ORIGIN || "https://netsentry.onrender.com/",
         credentials: true,
         methods: ["GET", "POST", "PUT", "DELETE", "PATCH"],
         allowedHeaders: ["Content-Type", "Authorization"],
@@ -257,6 +257,7 @@ class Application {
     this.app.use("/api/devices", deviceRoutes);
     this.app.use("/api/alerts", alertRoutes);
 
+    // ======== PRODUÇÃO: SERVIR O FRONTEND CORRETAMENTE ========
     if (process.env.NODE_ENV === "production") {
       const path = require("path");
 
@@ -271,9 +272,28 @@ class Application {
       // Servir arquivos estáticos do React
       this.app.use(express.static(frontendPath));
 
-      // Qualquer rota que não seja API → enviar index.html
-      this.app.use((req, res) => {
-        res.sendFile(path.join(frontendPath, "index.html"));
+      // Catch-all CONTROLADO para SPA (sem quebrar a API)
+      this.app.use((req, res, next) => {
+        // Se não for GET → continue (API usa POST, PUT, DELETE)
+        if (req.method !== "GET") return next();
+
+        // Rotas que NÃO devem ser servidas pelo React
+        const blocked = [
+          "/api",
+          "/api-docs",
+          "/health",
+          "/static",
+          "/favicon.ico",
+        ];
+
+        for (const prefix of blocked) {
+          if (req.path.startsWith(prefix)) {
+            return next();
+          }
+        }
+
+        // Se chegou aqui → enviar index.html
+        return res.sendFile(path.join(frontendPath, "index.html"));
       });
     }
 
