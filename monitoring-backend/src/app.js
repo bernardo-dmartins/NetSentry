@@ -257,9 +257,6 @@ class Application {
     this.app.use("/api/devices", deviceRoutes);
     this.app.use("/api/alerts", alertRoutes);
 
-    // Root endpoint
-    this.app.get("/", this.rootEndpoint.bind(this));
-
     if (process.env.NODE_ENV === "production") {
       const path = require("path");
 
