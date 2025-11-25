@@ -126,7 +126,7 @@ class Application {
     // CORS
     this.app.use(
       cors({
-        origin: process.env.CORS_ORIGIN || "https://netsentry.onrender.com/",
+        origin: process.env.CORS_ORIGIN || "https://netsentry.onrender.com",
         credentials: true,
         methods: ["GET", "POST", "PUT", "DELETE", "PATCH"],
         allowedHeaders: ["Content-Type", "Authorization"],
