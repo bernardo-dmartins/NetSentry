@@ -2,13 +2,11 @@ const winston = require('winston');
 const path = require('path');
 const fs = require('fs');
 
-// Criar diretório de logs se não existir
 const logsDir = path.join(__dirname, '../../logs');
 if (!fs.existsSync(logsDir)) {
   fs.mkdirSync(logsDir, { recursive: true });
 }
 
-// Formato customizado para logs
 const customFormat = winston.format.combine(
   winston.format.timestamp({ format: 'YYYY-MM-DD HH:mm:ss' }),
   winston.format.errors({ stack: true }),
@@ -20,7 +18,6 @@ const customFormat = winston.format.combine(
   })
 );
 
-// Criar logger
 const logger = winston.createLogger({
   level: process.env.LOG_LEVEL || 'info',
   format: customFormat,
@@ -32,7 +29,7 @@ const logger = winston.createLogger({
         customFormat
       )
     }),
-    // Arquivo de erro
+    
     new winston.transports.File({
       filename: path.join(logsDir, 'error.log'),
       level: 'error',
@@ -48,7 +45,6 @@ const logger = winston.createLogger({
   ]
 });
 
-// Métodos customizados
 logger.monitoring = (action, details) => {
   logger.info(`[MONITORING] ${action}`, { ...details });
 };

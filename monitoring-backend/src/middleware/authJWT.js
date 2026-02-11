@@ -1,82 +1,84 @@
 const jwt = require("jsonwebtoken");
 const logger = require("../utils/logger");
-const redisClient = require("../config/redis"); // ✅ ADICIONADO
+const redisClient = require("../config/redis");
+const { asyncHandler } = require("./errorHandler");
+const {
+  AuthenticationError,
+  TokenExpiredError,
+  InvalidTokenError,
+  SessionExpiredError,
+  InsufficientPermissionsError,
+  AccountDeactivatedError,
+  RateLimitError,
+} = require("../errors/AppError");
 
-// Helper de resposta para manter consistência
-const sendError = (res, status, message) => {
-  return res.status(status).json({ success: false, message });
-};
+const authMiddleware = asyncHandler(async (req, res, next) => {
+  const authHeader = req.header("Authorization");
 
-const authMiddleware = async (req, res, next) => {
-  try {
-    const authHeader = req.header("Authorization");
-
-    if (!authHeader) {
-      return sendError(res, 401, "Authentication token not provided");
-    }
-
-    const token = authHeader.replace("Bearer ", "");
-    if (!token) {
-      return sendError(res, 401, "Invalid token");
-    }
-
-    let decoded;
-    try {
-      decoded = jwt.verify(token, process.env.JWT_SECRET);
-    } catch (error) {
-      if (error.name === "TokenExpiredError") {
-        return sendError(res, 401, "Token expired. Please log in again.");
-      }
-      return sendError(res, 401, "Invalid token");
-    }
-
-    // Verificar sessão no Redis
-    if (decoded.sessionId) {
-      const sessionData = await redisClient.getSession(decoded.sessionId);
-
-      if (!sessionData) {
-        return sendError(
-          res,
-          401,
-          "Session expired or invalid. Please log in again."
-        );
-      }
-
-      if (sessionData.userId !== decoded.id) {
-        logger.warn(
-          `Session mismatch: sessionId=${decoded.sessionId}, userId=${decoded.id}`
-        );
-        return sendError(res, 401, "Invalid session");
-      }
-
-      req.sessionData = sessionData;
-    }
-
-    req.user = decoded;
-    req.token = token;
-    next();
-  } catch (error) {
-    logger.error("Erro no middleware de autenticação:", error);
-    return sendError(res, 500, "Internal server error");
-  }
-};
-
-const adminMiddleware = (req, res, next) => {
-  if (!req.user) {
-    return sendError(res, 401, "Authentication required");
-  }
-
-  if (req.user.role !== "admin") {
-    logger.warn(`Unauthorized admin access by user: ${req.user.username}`);
-    return sendError(
-      res,
-      403,
-      "Access denied. Administrator privileges required."
+  if (!authHeader) {
+    throw new AuthenticationError(
+      "Authentication token not provided",
+      "TOKEN_MISSING",
     );
   }
 
+  const token = authHeader.replace("Bearer ", "");
+  if (!token) {
+    throw new InvalidTokenError();
+  }
+
+  let decoded;
+  try {
+    decoded = jwt.verify(token, process.env.JWT_SECRET);
+  } catch (error) {
+    if (error.name === "TokenExpiredError") {
+      throw new TokenExpiredError();
+    }
+    throw new InvalidTokenError();
+  }
+
+  if (decoded.sessionId) {
+    const sessionData = await redisClient.getSession(decoded.sessionId);
+
+    if (!sessionData) {
+      throw new SessionExpiredError();
+    }
+
+    if (sessionData.userId !== decoded.id) {
+      logger.warn("Session mismatch detected", {
+        sessionId: decoded.sessionId,
+        tokenUserId: decoded.id,
+        sessionUserId: sessionData.userId,
+        ip: req.ip,
+      });
+      throw new SessionExpiredError();
+    }
+
+    req.sessionData = sessionData;
+  }
+
+  req.user = decoded;
+  req.token = token;
   next();
-};
+});
+
+const adminMiddleware = asyncHandler(async (req, res, next) => {
+  if (!req.user) {
+    throw new AuthenticationError("Authentication required", "AUTH_REQUIRED");
+  }
+
+  if (req.user.role !== "admin") {
+    logger.warn("Unauthorized admin access attempt", {
+      userId: req.user.id,
+      username: req.user.username,
+      ip: req.ip,
+      path: req.originalUrl,
+    });
+    throw new InsufficientPermissionsError();
+  }
+
+  next();
+});
 
 const optionalAuth = async (req, res, next) => {
   try {
@@ -99,13 +101,19 @@ const optionalAuth = async (req, res, next) => {
           req.user = decoded;
         }
       } catch (err) {
-        logger.debug("Optional auth: Invalid or expired token");
+        logger.debug("Optional auth: Invalid or expired token", {
+          error: err.message,
+          ip: req.ip,
+        });
       }
     }
 
     next();
   } catch (error) {
-    logger.error("Error in optionalAuth middleware:", error);
+    logger.error("Error in optionalAuth middleware", {
+      error: error.message,
+      stack: error.stack,
+    });
     next();
   }
 };
@@ -114,62 +122,85 @@ const rateLimitMiddleware = (options = {}) => {
   const {
     windowMs = 60000,
     max = 100,
-    message = "Too many requests. Try again later.",
+    message = "Too many requests. Please try again later.",
     keyGenerator = (req) => req.ip || "unknown",
   } = options;
 
-  // Skip rate limiting in test environment or from Cypress user agent
   const skipRateLimit = (req) => {
-    if (process.env.NODE_ENV === "test") {
-      return true;
-    }
+    if (process.env.NODE_ENV === "test") return true;
+    if (process.env.DISABLE_RATE_LIMIT === "true") return true;
+
     const userAgent = req.get("user-agent") || "";
-    if (userAgent.toLowerCase().includes("cypress")) {
-      return true;
-    }
+    if (userAgent.toLowerCase().includes("cypress")) return true;
+
     return false;
   };
 
-  return async (req, res, next) => {
+  return asyncHandler(async (req, res, next) => {
+    if (skipRateLimit(req)) {
+      return next();
+    }
+
+    const key = `ratelimit:${keyGenerator(req)}`;
+    const windowSeconds = Math.ceil(windowMs / 1000);
+
     try {
-      if (skipRateLimit(req)) {
+      const requests = await redisClient.incr(key, windowSeconds);
+
+      if (requests === null) {
+        logger.warn("Rate limiting disabled - Redis unavailable");
         return next();
       }
-      const key = `ratelimit:${keyGenerator(req)}`;
-      const requests = await redisClient.incr(key, Math.ceil(windowMs / 1000));
-
-      if (requests === null) return next(); // Redis offline -> libera
 
       res.setHeader("X-RateLimit-Limit", max);
       res.setHeader("X-RateLimit-Remaining", Math.max(0, max - requests));
 
       if (requests > max) {
         const ttl = await redisClient.ttl(key);
+        const retryAfter = Math.max(ttl, 60);
+
         res.setHeader("X-RateLimit-Reset", Date.now() + ttl * 1000);
 
-        logger.warn(`Rate limit exceeded for ${key}`);
-        return sendError(res, 429, message);
+        logger.warn("Rate limit exceeded", {
+          key,
+          requests,
+          limit: max,
+          ip: req.ip,
+          path: req.originalUrl,
+        });
+
+        throw new RateLimitError(retryAfter);
       }
 
       next();
     } catch (error) {
-      logger.error("Error in rate limit middleware:", error);
-      next(); // Em erro, libera
+      if (error instanceof RateLimitError) {
+        throw error;
+      }
+
+      logger.error("Error in rate limit middleware", {
+        error: error.message,
+        stack: error.stack,
+      });
+      next();
     }
-  };
+  });
 };
 
-const activeUserMiddleware = async (req, res, next) => {
-  try {
-    if (!req.user) {
-      return sendError(res, 401, "Authentication required");
-    }
+const activeUserMiddleware = asyncHandler(async (req, res, next) => {
+  if (!req.user) {
+    throw new AuthenticationError("Authentication required", "AUTH_REQUIRED");
+  }
 
-    const cacheKey = `user:active:${req.user.id}`;
+  const cacheKey = `user:active:${req.user.id}`;
+
+  try {
     const isActive = await redisClient.get(cacheKey);
 
     if (isActive !== null) {
-      if (!isActive) return sendError(res, 403, "User deactivated");
+      if (!isActive) {
+        throw new AccountDeactivatedError();
+      }
       return next();
     }
 
@@ -178,16 +209,23 @@ const activeUserMiddleware = async (req, res, next) => {
 
     if (!user || !user.isActive) {
       await redisClient.set(cacheKey, false, 300);
-      return sendError(res, 403, "User deactivated or not found");
+      throw new AccountDeactivatedError();
     }
 
     await redisClient.set(cacheKey, true, 300);
     next();
   } catch (error) {
-    logger.error("Error in activeUser middleware:", error);
-    next(); // Em erro, não bloqueia
+    if (error instanceof AccountDeactivatedError) {
+      throw error;
+    }
+
+    logger.error("Error checking user active status", {
+      userId: req.user.id,
+      error: error.message,
+    });
+    next();
   }
-};
+});
 
 module.exports = {
   authMiddleware,

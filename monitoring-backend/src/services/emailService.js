@@ -5,57 +5,35 @@ class EmailService {
   constructor() {
     this.transporter = null;
     this.initialized = false;
-    this.initialize();
   }
 
   initialize() {
+    if (
+      !process.env.EMAIL_USER ||
+      !process.env.EMAIL_PASSWORD
+    ) {
+      logger.warn("Email environment variables not loaded. Emails disabled.");
+      return;
+    }
+
     try {
-      if (
-        !process.env.EMAIL_SERVICE ||
-        !process.env.EMAIL_USER ||
-        !process.env.EMAIL_PASSWORD
-      ) {
-        logger.warn("Email configurations not found. Emails disabled.");
-        return;
-      }
-      const config = {};
-
-      if (process.env.EMAIL_HOST && process.env.EMAIL_PORT) {
-        // Uso explícito de Host/Porta
-        config.host = process.env.EMAIL_HOST;
-        config.port = parseInt(process.env.EMAIL_PORT, 10);
-        // Define 'secure' com base na porta (465 = SSL/true; 587 = TLS/false)
-        config.secure = config.port === 465;
-      } else if (process.env.EMAIL_SERVICE) {
-        // Fallback: Usa apenas o service (ex: 'gmail')
-        config.service = process.env.EMAIL_SERVICE;
-      } else {
-        logger.warn(
-          "Email service or host/port configurations not found. Emails disabled."
-        );
-        return;
-      }
-
-      // Adiciona autenticação para ambas as configurações
-      config.auth = {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASSWORD,
-      };
-
-      this.transporter = nodemailer.createTransport(config);
+      this.transporter = nodemailer.createTransport({
+        host: process.env.EMAIL_HOST || "smtp.gmail.com",
+        port: Number(process.env.EMAIL_PORT) || 465,
+        secure: Number(process.env.EMAIL_PORT) === 465,
+        auth: {
+          user: process.env.EMAIL_USER,
+          pass: process.env.EMAIL_PASSWORD,
+        },
+      });
 
       this.initialized = true;
-      logger.info(
-        "Email service initialized using explicit Host/Port or Service name."
-      );
+      logger.info("EmailService initialized successfully");
     } catch (error) {
-      logger.error("Error initializing email service:", error);
-      this.initialized = false;
+      logger.error("Failed to initialize EmailService:", error);
     }
   }
-  /**
-   * Enviar email de boas-vindas ao registrar
-   */
+  
   async sendWelcomeEmail(user) {
     if (!this.initialized) {
       logger.warn("Email service not initialized. Skipping welcome email.");
@@ -63,7 +41,7 @@ class EmailService {
     }
 
     try {
-      const subject = "🎉 Welcome to NetSentry Monitoring System!";
+      const subject = "Welcome to NetSentry Monitoring System!";
 
       const html = `
         <!DOCTYPE html>
@@ -158,11 +136,11 @@ class EmailService {
               <div class="feature-list">
                 <h3 style="margin-top: 0; color: #667eea;">✨ What you can do now:</h3>
                 <ul style="margin: 10px 0; padding-left: 20px;">
-                  <li>✅ <strong>Add and monitor devices</strong> - Servers, routers, switches, and more</li>
-                  <li>✅ <strong>Real-time status updates</strong> - Know instantly when something goes down</li>
-                  <li>✅ <strong>Receive instant alerts</strong> - Email notifications for critical events</li>
-                  <li>✅ <strong>View detailed statistics</strong> - Response times, uptime, and trends</li>
-                  <li>✅ <strong>Configure monitoring settings</strong> - Customize checks and intervals</li>
+                  <li> <strong>Add and monitor devices</strong> - Servers, routers, switches, and more</li>
+                  <li> <strong>Real-time status updates</strong> - Know instantly when something goes down</li>
+                  <li> <strong>Receive instant alerts</strong> - Email notifications for critical events</li>
+                  <li> <strong>View detailed statistics</strong> - Response times, uptime, and trends</li>
+                  <li> <strong>Configure monitoring settings</strong> - Customize checks and intervals</li>
                 </ul>
               </div>
 
@@ -176,7 +154,7 @@ class EmailService {
 
               <div style="background: #e3f2fd; border-left: 4px solid #2196F3; padding: 15px; margin: 20px 0; border-radius: 4px;">
                 <p style="margin: 0; color: #1976D2;">
-                  <strong>💡 Pro Tip:</strong> Start by adding your first device to monitor. You'll receive instant notifications about its status!
+                  <strong>Pro Tip:</strong> Start by adding your first device to monitor. You'll receive instant notifications about its status!
                 </p>
               </div>
 
@@ -231,7 +209,7 @@ class EmailService {
     }
 
     try {
-      const subject = `🚨 [${alert.level.toUpperCase()}] ${device.name} - ${
+      const subject = `[${alert.level.toUpperCase()}] ${device.name} - ${
         alert.message
       }`;
 
@@ -287,7 +265,7 @@ class EmailService {
         <body>
           <div class="container">
             <div class="header">
-              <h1 style="margin: 0;">🚨 ALERT</h1>
+              <h1 style="margin: 0;">ALERT</h1>
               <h2 style="margin: 10px 0 0 0;">${device.name}</h2>
             </div>
             
@@ -355,7 +333,7 @@ class EmailService {
 
               <div style="background: #fff3cd; border-left: 4px solid #ffc107; padding: 15px; margin: 20px 0; border-radius: 4px;">
                 <p style="margin: 0; color: #856404;">
-                  <strong>⚠️ Action Required:</strong> Please check the device immediately and take necessary actions to resolve the issue.
+                  <strong> Action Required:</strong> Please check the device immediately and take necessary actions to resolve the issue.
                 </p>
               </div>
 
@@ -418,15 +396,15 @@ class EmailService {
           process.env.EMAIL_FROM || process.env.EMAIL_USER
         }>`,
         to,
-        subject: "✅ Test Email - NetSentry Monitoring System",
+        subject: "Test Email - NetSentry Monitoring System",
         html: `
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background: #f9f9f9;">
             <div style="background: #4CAF50; color: white; padding: 30px; text-align: center; border-radius: 8px;">
-              <h1 style="margin: 0;">✅ Email Configured Successfully!</h1>
+              <h1 style="margin: 0;">Email Configured Successfully!</h1>
             </div>
             <div style="background: white; padding: 30px; margin-top: 20px; border-radius: 8px;">
               <p style="font-size: 16px;">This is a test email from <strong>NetSentry Monitoring System</strong>.</p>
-              <p>If you received this email, it means the email service is working correctly! 🎉</p>
+              <p>If you received this email, it means the email service is working correctly!</p>
               <div style="background: #e8f5e9; border-left: 4px solid #4CAF50; padding: 15px; margin: 20px 0;">
                 <p style="margin: 0;"><strong>✓</strong> SMTP Configuration: OK</p>
                 <p style="margin: 10px 0 0 0;"><strong>✓</strong> Email Delivery: OK</p>
@@ -464,7 +442,7 @@ class EmailService {
       const html = `
         <div style="font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto;">
           <div style="background: #2196F3; color: white; padding: 30px; text-align: center;">
-            <h1 style="margin: 0;">📊 Daily Monitoring Report</h1>
+            <h1 style="margin: 0;">Daily Monitoring Report</h1>
             <p style="margin: 10px 0 0 0; font-size: 18px;">
               ${new Date().toLocaleDateString("en-US", { dateStyle: "full" })}
             </p>
@@ -541,7 +519,7 @@ class EmailService {
                   : ""
               }
             `
-                : '<div style="background: #e8f5e9; border-left: 4px solid #4CAF50; padding: 20px; border-radius: 4px;"><p style="margin: 0; color: #2e7d32;"><strong>✓</strong> No active alerts at the moment. All systems operational! 🎉</p></div>'
+                : '<div style="background: #e8f5e9; border-left: 4px solid #4CAF50; padding: 20px; border-radius: 4px;"><p style="margin: 0; color: #2e7d32;"><strong>✓</strong> No active alerts at the moment. All systems operational!</p></div>'
             }
 
             <p style="margin-top: 40px; color: #666; font-size: 12px; text-align: center;">
@@ -556,7 +534,7 @@ class EmailService {
           process.env.EMAIL_FROM || process.env.EMAIL_USER
         }>`,
         to: process.env.ALERT_EMAIL_TO,
-        subject: `📊 Daily Report - ${new Date().toLocaleDateString("en-US")}`,
+        subject: `Daily Report - ${new Date().toLocaleDateString("en-US")}`,
         html,
       };
 

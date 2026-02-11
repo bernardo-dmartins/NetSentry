@@ -10,9 +10,6 @@ class RedisClient {
     this.namespace = process.env.REDIS_NAMESPACE || "netsentry";
   }
 
-  /**
-   * Conecta ao Redis com retry automático
-   */
   async connect() {
     try {
       const redisUrl = process.env.REDIS_URL;
@@ -33,7 +30,7 @@ class RedisClient {
               logger.error(
                 `Redis: Max reconnect attempts (${this.maxReconnectAttempts}) reached`
               );
-              return false; // Para de tentar reconectar
+              return false; 
             }
 
             const delay = Math.min(retries * 100, 3000);
@@ -53,7 +50,6 @@ class RedisClient {
     
       this.client = redis.createClient(config);
 
-      // Event handlers
       this.client.on("error", (err) => {
         logger.error("Redis Error:", err.message);
         this.isConnected = false;
@@ -83,13 +79,9 @@ class RedisClient {
     } catch (error) {
       logger.error("Failed to connect to Redis:", error.message);
       logger.warn("Application will continue without Redis cache");
-      // Não lança erro - aplicação continua sem Redis
     }
   }
 
-  /**
-   * Desconecta gracefully
-   */
   async disconnect() {
     try {
       if (this.client && this.isConnected) {
@@ -105,16 +97,10 @@ class RedisClient {
     }
   }
 
-  /**
-   * Adiciona namespace à chave
-   */
   _getKey(key) {
     return `${this.namespace}:${key}`;
   }
 
-  /**
-   * Verifica se Redis está disponível antes de executar operação
-   */
   _checkConnection() {
     if (!this.isConnected || !this.client) {
       logger.debug("Redis not available, operation skipped");
@@ -123,11 +109,7 @@ class RedisClient {
     return true;
   }
 
-  // ==================== CACHE OPERATIONS ====================
-
-  /**
-   * Set com TTL opcional
-   */
+ 
   async set(key, value, expireInSeconds = null) {
     if (!this._checkConnection()) return false;
 
@@ -149,9 +131,6 @@ class RedisClient {
     }
   }
 
-  /**
-   * Get com fallback
-   */
   async get(key) {
     if (!this._checkConnection()) return null;
 
@@ -172,9 +151,6 @@ class RedisClient {
     }
   }
 
-  /**
-   * Delete uma ou múltiplas chaves
-   */
   async del(key) {
     if (!this._checkConnection()) return 0;
 
@@ -191,9 +167,6 @@ class RedisClient {
     }
   }
 
-  /**
-   * Verifica se chave existe
-   */
   async exists(key) {
     if (!this._checkConnection()) return false;
 
@@ -206,9 +179,6 @@ class RedisClient {
     }
   }
 
-  /**
-   * Increment (útil para contadores, rate limiting)
-   */
   async incr(key, expireInSeconds = null) {
     if (!this._checkConnection()) return null;
 
@@ -227,9 +197,6 @@ class RedisClient {
     }
   }
 
-  /**
-   * Get TTL de uma chave
-   */
   async ttl(key) {
     if (!this._checkConnection()) return -2;
 
@@ -242,35 +209,21 @@ class RedisClient {
     }
   }
 
-  // ==================== SESSION OPERATIONS ====================
-
-  /**
-   * Set session com TTL padrão de 24h
-   */
   async setSession(sessionId, data, expireInSeconds = 86400) {
     const key = `session:${sessionId}`;
     return await this.set(key, data, expireInSeconds);
   }
 
-  /**
-   * Get session
-   */
   async getSession(sessionId) {
     const key = `session:${sessionId}`;
     return await this.get(key);
   }
 
-  /**
-   * Delete session
-   */
   async deleteSession(sessionId) {
     const key = `session:${sessionId}`;
     return await this.del(key);
   }
 
-  /**
-   * Renova TTL da sessão
-   */
   async refreshSession(sessionId, expireInSeconds = 86400) {
     if (!this._checkConnection()) return false;
 
@@ -284,11 +237,6 @@ class RedisClient {
     }
   }
 
-  // ==================== QUEUE OPERATIONS ====================
-
-  /**
-   * Adiciona item à fila
-   */
   async pushToQueue(queueName, data, priority = "normal") {
     if (!this._checkConnection()) return false;
 
@@ -316,9 +264,6 @@ class RedisClient {
     }
   }
 
-  /**
-   * Remove e retorna item da fila
-   */
   async popFromQueue(queueName, timeout = 0) {
     if (!this._checkConnection()) return null;
 
@@ -327,7 +272,6 @@ class RedisClient {
 
       let result;
       if (timeout > 0) {
-        // Blocking pop com timeout
         result = await this.client.brPop(fullQueue, timeout);
         result = result?.element;
       } else {
@@ -341,9 +285,6 @@ class RedisClient {
     }
   }
 
-  /**
-   * Retorna tamanho da fila
-   */
   async getQueueLength(queueName) {
     if (!this._checkConnection()) return 0;
 
@@ -356,11 +297,6 @@ class RedisClient {
     }
   }
 
-  // ==================== CACHE INVALIDATION ====================
-
-  /**
-   * Invalida cache por pattern usando SCAN (seguro para produção)
-   */
   async invalidatePattern(pattern) {
     if (!this._checkConnection()) return 0;
 
@@ -386,7 +322,7 @@ class RedisClient {
 
       if (deletedCount > 0) {
         logger.info(
-          `✅ Invalidated ${deletedCount} cache keys matching pattern: ${pattern}`
+          `Invalidated ${deletedCount} cache keys matching pattern: ${pattern}`
         );
       }
 
@@ -400,11 +336,6 @@ class RedisClient {
     }
   }
 
-  // ==================== HASH OPERATIONS (para objetos complexos) ====================
-
-  /**
-   * Set múltiplos campos em um hash
-   */
   async hSet(key, field, value) {
     if (!this._checkConnection()) return false;
 
@@ -418,9 +349,6 @@ class RedisClient {
     }
   }
 
-  /**
-   * Get campo de um hash
-   */
   async hGet(key, field) {
     if (!this._checkConnection()) return null;
 
@@ -434,9 +362,6 @@ class RedisClient {
     }
   }
 
-  /**
-   * Get todos os campos de um hash
-   */
   async hGetAll(key) {
     if (!this._checkConnection()) return {};
 
@@ -461,11 +386,6 @@ class RedisClient {
     }
   }
 
-  // ==================== MONITORING & HEALTH ====================
-
-  /**
-   * Health check
-   */
   async ping() {
     if (!this._checkConnection()) return false;
 
@@ -478,9 +398,6 @@ class RedisClient {
     }
   }
 
-  /**
-   * Retorna informações do Redis
-   */
   async info() {
     if (!this._checkConnection()) return null;
 
@@ -493,9 +410,6 @@ class RedisClient {
     }
   }
 
-  /**
-   * Retorna estatísticas de uso
-   */
   async getStats() {
     if (!this._checkConnection()) {
       return {
@@ -523,9 +437,6 @@ class RedisClient {
     }
   }
 
-  /**
-   * Limpa TODOS os dados do namespace atual (CUIDADO!)
-   */
   async flushNamespace() {
     if (!this._checkConnection()) return 0;
 
@@ -538,7 +449,6 @@ class RedisClient {
   }
 }
 
-// Create singleton instance
 const redisClient = new RedisClient();
 
 module.exports = redisClient;

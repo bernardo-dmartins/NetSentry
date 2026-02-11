@@ -7,7 +7,6 @@ const helmet = require("helmet");
 const compression = require("compression");
 const rateLimit = require("express-rate-limit");
 
-// Utilities and Configurations
 const logger = require("./utils/logger");
 const {
   testConnection,
@@ -17,19 +16,15 @@ const {
 const { specs, swaggerUi } = require("./config/swagger");
 const redisClient = require("./config/redis");
 
-// Services
 const websocketService = require("./services/websocketService");
 const monitoringJob = require("./jobs/monitoringJob");
 
-// Routes
 const authRoutes = require("./routes/auth");
 const deviceRoutes = require("./routes/devices");
 const alertRoutes = require("./routes/alerts");
 
-/**
- * Application class - Main application entry point
- * Handles server initialization, middleware setup, and graceful shutdown
- */
+const { notFoundHandler, errorHandler } = require("./middleware/errorHandler");
+
 class Application {
   constructor() {
     this.app = express();
@@ -39,16 +34,10 @@ class Application {
     this.isRedisConnected = false;
   }
 
-  /**
-   * Get port from environment or default
-   */
   getPort() {
     return parseInt(process.env.PORT, 10) || 5000;
   }
 
-  /**
-   * Initialize application
-   */
   async initialize() {
     try {
       logger.info("Initializing Monitoring System...");
@@ -67,9 +56,6 @@ class Application {
     }
   }
 
-  /**
-   * Setup and test database connection
-   */
   async setupDatabase() {
     try {
       const isConnected = await testConnection();
@@ -86,14 +72,10 @@ class Application {
     }
   }
 
-  /**
-   * Setup Redis connection
-   */
   async setupRedis() {
     try {
       await redisClient.connect();
 
-      // Test connection
       const pingResult = await redisClient.ping();
 
       if (pingResult) {
@@ -107,54 +89,40 @@ class Application {
       logger.warn("Application will continue without Redis cache");
       logger.warn("Sessions and rate limiting will use fallback methods");
       this.isRedisConnected = false;
-      // Don't throw error - Redis is optional for basic functionality
     }
   }
 
-  /**
-   * Configure Express middlewares
-   */
   setupMiddlewares() {
-    // Security
     this.app.use(
       helmet({
         crossOriginEmbedderPolicy: false,
         contentSecurityPolicy: process.env.NODE_ENV === "production",
-      })
+      }),
     );
 
-    // CORS
     this.app.use(
       cors({
         origin: process.env.CORS_ORIGIN || "https://netsentry.onrender.com",
         credentials: true,
         methods: ["GET", "POST", "PUT", "DELETE", "PATCH"],
         allowedHeaders: ["Content-Type", "Authorization"],
-      })
+      }),
     );
 
-    // Compression
     this.app.use(compression());
 
-    // Body parsing
     this.app.use(express.json({ limit: "10mb" }));
     this.app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 
-    // Rate limiting
     this.setupRateLimiting();
 
-    // Request logging
     this.setupRequestLogging();
 
-    // Trust proxy
     this.app.set("trust proxy", 1);
 
     logger.info("Middlewares configured");
   }
 
-  /**
-   * Configure rate limiting
-   */
   setupRateLimiting() {
     const isTest =
       process.env.NODE_ENV === "test" ||
@@ -162,11 +130,11 @@ class Application {
 
     if (isTest) {
       logger.warn("Rate limiting DISABLED (test mode)");
-      return; // No rate limiting applied
+      return;
     }
 
     const limiter = rateLimit({
-      windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS, 10) || 900000, // 15 min
+      windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS, 10) || 900000,
       max: isTest
         ? 1000
         : parseInt(process.env.RATE_LIMIT_MAX_REQUESTS, 10) || 100,
@@ -187,7 +155,6 @@ class Application {
           message: "Too many requests. Please try again later.",
         });
       },
-      // Skip rate limiting for health check and during test env or Cypress user agent
       skip: (req) => {
         if (req.path === "/health") return true;
         if (isTest) return true;
@@ -197,13 +164,9 @@ class Application {
       },
     });
 
-    // Apply rate limiter to all API routes
     this.app.use("/api/", limiter);
   }
 
-  /**
-   * Configure request logging
-   */
   setupRequestLogging() {
     this.app.use((req, res, next) => {
       const start = Date.now();
@@ -211,20 +174,19 @@ class Application {
       res.on("finish", () => {
         const duration = Date.now() - start;
 
-        // Log level based on status code
         const level =
           res.statusCode >= 500
             ? "error"
             : res.statusCode >= 400
-            ? "warn"
-            : "info";
+              ? "warn"
+              : "info";
 
         logger[level](
           `${req.method} ${req.path} ${res.statusCode} - ${duration}ms`,
           {
             ip: req.ip,
             userAgent: req.get("user-agent"),
-          }
+          },
         );
       });
 
@@ -232,32 +194,24 @@ class Application {
     });
   }
 
-  /**
-   * Configure application routes
-   */
   setupRoutes() {
-    // Health check
     this.app.get("/health", this.healthCheck.bind(this));
 
-    // Redis health check (specific endpoint)
     this.app.get("/health/redis", this.redisHealthCheck.bind(this));
 
-    // API documentation
     this.app.use("/api-docs", swaggerUi.serve);
     this.app.get(
       "/api-docs",
       swaggerUi.setup(specs, {
         customCss: ".swagger-ui .topbar { display: none }",
         customSiteTitle: "Monitoring System API Documentation",
-      })
+      }),
     );
 
-    // API routes
     this.app.use("/api/auth", authRoutes);
     this.app.use("/api/devices", deviceRoutes);
     this.app.use("/api/alerts", alertRoutes);
 
-    // ======== PRODUÇÃO: SERVIR O FRONTEND CORRETAMENTE ========
     if (process.env.NODE_ENV === "production") {
       const path = require("path");
 
@@ -266,18 +220,14 @@ class Application {
         "..",
         "..",
         "monitoring-frontend",
-        "build"
+        "build",
       );
 
-      // Servir arquivos estáticos do React
       this.app.use(express.static(frontendPath));
 
-      // Catch-all CONTROLADO para SPA (sem quebrar a API)
       this.app.use((req, res, next) => {
-        // Se não for GET → continue (API usa POST, PUT, DELETE)
         if (req.method !== "GET") return next();
 
-        // Rotas que NÃO devem ser servidas pelo React
         const blocked = [
           "/api",
           "/api-docs",
@@ -292,20 +242,19 @@ class Application {
           }
         }
 
-        // Se chegou aqui → enviar index.html
         return res.sendFile(path.join(frontendPath, "index.html"));
       });
     }
 
-    // 404 handler
-    this.app.use(this.notFoundHandler.bind(this));
+    this.app.use(notFoundHandler);
+
+    this.app.use(errorHandler);
 
     logger.info("Routes configured");
   }
 
   async healthCheck(req, res) {
     try {
-      // Check database
       let dbStatus = "unknown";
       try {
         await sequelize.authenticate();
@@ -315,7 +264,6 @@ class Application {
         logger.error("Database health check failed:", error);
       }
 
-      // Check Redis
       let redisStatus = "unknown";
       let redisInfo = null;
 
@@ -324,7 +272,6 @@ class Application {
           const pingResult = await redisClient.ping();
           redisStatus = pingResult ? "healthy" : "unhealthy";
 
-          // Get Redis stats
           const stats = await redisClient.getStats();
           redisInfo = {
             connected: stats.connected,
@@ -338,7 +285,6 @@ class Application {
         redisStatus = "disconnected";
       }
 
-      // Overall health
       const isHealthy = dbStatus === "healthy";
 
       res.status(isHealthy ? 200 : 503).json({
@@ -370,9 +316,6 @@ class Application {
     }
   }
 
-  /**
-   * Redis-specific health check
-   */
   async redisHealthCheck(req, res) {
     try {
       if (!this.isRedisConnected) {
@@ -402,9 +345,6 @@ class Application {
     }
   }
 
-  /**
-   * Root endpoint
-   */
   rootEndpoint(req, res) {
     res.json({
       name: "NetSentry Monitoring System API",
@@ -429,106 +369,44 @@ class Application {
     });
   }
 
-  /**
-   * 404 handler
-   */
-  notFoundHandler(req, res) {
-    res.status(404).json({
-      success: false,
-      message: "Endpoint not found",
-      path: req.originalUrl,
-      method: req.method,
-      suggestion: "Check /api-docs for available endpoints",
-    });
-  }
-
-  /**
-   * Setup WebSocket service
-   */
   setupWebSocket() {
     websocketService.initialize(this.server);
     logger.info("WebSocket service initialized");
   }
 
-  /**
-   * Setup background jobs
-   */
   setupBackgroundJobs() {
     monitoringJob.start();
     logger.info("Background jobs started");
   }
 
-  /**
-   * Configure error handlers
-   */
   setupErrorHandlers() {
-    // Express error handler
-    this.app.use(this.errorHandler.bind(this));
-
-    // Process error handlers
     process.on("uncaughtException", this.handleUncaughtException.bind(this));
     process.on("unhandledRejection", this.handleUnhandledRejection.bind(this));
 
     logger.info("Error handlers configured");
   }
 
-  /**
-   * Express error handler middleware
-   */
-  errorHandler(err, req, res, next) {
-    logger.error("Application error:", {
-      message: err?.message,
-      stack: err?.stack,
-      url: req.originalUrl,
-      method: req.method,
-      ip: req.ip,
-    });
-
-    const isDevelopment = process.env.NODE_ENV !== "production";
-
-    res.status(err.status || 500).json({
-      success: false,
-      message: isDevelopment ? err?.message : "Internal server error",
-      ...(isDevelopment && {
-        stack: err?.stack,
-        path: req.originalUrl,
-      }),
-    });
-  }
-
-  /**
-   * Handle uncaught exceptions
-   */
   handleUncaughtException(error) {
     logger.error("Uncaught Exception:", error);
     this.gracefulShutdown("UNCAUGHT_EXCEPTION");
   }
 
-  /**
-   * Handle unhandled promise rejections
-   */
   handleUnhandledRejection(reason, promise) {
     logger.error("Unhandled Promise Rejection:", { reason, promise });
     this.gracefulShutdown("UNHANDLED_REJECTION");
   }
 
-  /**
-   * Handle initialization errors
-   */
   handleInitializationError(error) {
     logger.error("Failed to initialize application:", error?.message || error);
     console.error(error);
     process.exit(1);
   }
 
-  /**
-   * Start the server
-   */
   async start() {
     try {
       await this.initialize();
 
-      const HOST = "0.0.0.0"; // Adição: Escutar em todas as interfaces
+      const HOST = "0.0.0.0";
 
       this.server.listen(this.port, HOST, () => {
         this.logServerInfo();
@@ -541,9 +419,6 @@ class Application {
     }
   }
 
-  /**
-   * Log server information
-   */
   logServerInfo() {
     const border = "=".repeat(70);
     const redisStatus = this.isRedisConnected ? "Connected" : "Disconnected";
@@ -560,24 +435,18 @@ class Application {
     logger.info(`Environment:   ${process.env.NODE_ENV || "development"}`);
     logger.info(`Redis:         ${redisStatus}`);
     logger.info(
-      `Cache:         ${this.isRedisConnected ? "Enabled" : "Disabled"}`
+      `Cache:         ${this.isRedisConnected ? "Enabled" : "Disabled"}`,
     );
     logger.info(`Rate Limit:   ${this.isRedisConnected ? "Redis" : "Memory"}`);
     logger.info(border);
     console.log("");
   }
 
-  /**
-   * Setup graceful shutdown handlers
-   */
   setupGracefulShutdown() {
     process.on("SIGTERM", () => this.gracefulShutdown("SIGTERM"));
     process.on("SIGINT", () => this.gracefulShutdown("SIGINT"));
   }
 
-  /**
-   * Perform graceful shutdown
-   */
   async gracefulShutdown(signal) {
     if (this.isShuttingDown) return;
     this.isShuttingDown = true;
@@ -587,29 +456,24 @@ class Application {
     const shutdownTimeout = setTimeout(() => {
       logger.error("Shutdown timeout exceeded. Forcing exit...");
       process.exit(1);
-    }, 30000); // 30 seconds timeout
+    }, 30000);
 
     try {
-      // Stop accepting new connections
       this.server.close(() => {
         logger.info("HTTP server closed");
       });
 
-      // Stop background jobs first
       monitoringJob.stop();
       logger.info("Background jobs stopped");
 
-      // Close WebSocket connections
       websocketService.close();
       logger.info("WebSocket connections closed");
 
-      // Close Redis connection
       if (this.isRedisConnected) {
         await redisClient.disconnect();
         logger.info("Redis connection closed");
       }
 
-      // Close database connection last
       await sequelize.close();
       logger.info("Database connection closed");
 
@@ -624,7 +488,6 @@ class Application {
   }
 }
 
-// Create and start application
 const application = new Application();
 
 if (require.main === module) {

@@ -1,7 +1,6 @@
 *.env
 database.sqlite
 node_modules/
-TODO.md
 Mock/
 cypress/
 logs/

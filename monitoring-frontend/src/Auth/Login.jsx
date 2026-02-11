@@ -20,7 +20,7 @@ export default function Login({ onLoginSuccess }) {
       ...formData,
       [e.target.name]: e.target.value
     });
-    setError(''); // Limpar erro ao digitar
+    setError(''); 
   };
 
   const handleSubmit = async (e) => {
@@ -29,7 +29,6 @@ export default function Login({ onLoginSuccess }) {
     setLoading(true);
 
     try {
-      // Validações
       if (!isLogin) {
         if (formData.password !== formData.confirmPassword) {
           setError('The passwords do not match');
@@ -70,11 +69,9 @@ export default function Login({ onLoginSuccess }) {
       const data = await response.json();
 
       if (data.success) {
-        // Salvar token e usuário
         localStorage.setItem('token', data.data.token);
         localStorage.setItem('user', JSON.stringify(data.data.user));
         
-        // Chamar callback de sucesso
         onLoginSuccess(data.data);
       } else {
         setError(data.message || 'Login error');
@@ -91,7 +88,6 @@ export default function Login({ onLoginSuccess }) {
   return (
     <div className="min-h-screen bg-gray-900 flex items-center justify-center p-4">
       <div className="w-full max-w-md">
-        {/* Logo/Header */}
         <div className="text-center mb-8">
           <div className="inline-block p-4 bg-gray-800 border border-gray-700 rounded-2xl backdrop-blur-sm mb-4 shadow-xl">
             <Activity className="w-12 h-12 text-blue-500" />
@@ -104,7 +100,6 @@ export default function Login({ onLoginSuccess }) {
           </p>
         </div>
 
-        {/* Card de Login/Register */}
         <div className="bg-gray-800 border border-gray-700 rounded-2xl shadow-2xl p-8">
           {/* Tabs */}
           <div className="flex gap-2 mb-6">
@@ -138,7 +133,6 @@ export default function Login({ onLoginSuccess }) {
             </button>
           </div>
 
-          {/* Mensagem de Erro */}
           {error && (
             <div className="mb-4 p-3 bg-red-500/10 border border-red-500/30 rounded-lg flex items-center gap-2 text-red-400">
               <AlertCircle className="w-5 h-5 flex-shrink-0" />
@@ -146,9 +140,7 @@ export default function Login({ onLoginSuccess }) {
             </div>
           )}
 
-          {/* Formulário */}
           <form onSubmit={handleSubmit} className="space-y-4">
-            {/* Username */}
             <div>
               <label className="block text-sm font-medium text-gray-300 mb-2">
                 Username
@@ -167,7 +159,6 @@ export default function Login({ onLoginSuccess }) {
               </div>
             </div>
 
-            {/* Email (only for registration) */}
             {!isLogin && (
               <div>
                 <label className="block text-sm font-medium text-gray-300 mb-2">
@@ -188,7 +179,6 @@ export default function Login({ onLoginSuccess }) {
               </div>
             )}
 
-            {/* Password */}
             <div>
               <label className="block text-sm font-medium text-gray-300 mb-2">
                 Password
@@ -218,7 +208,6 @@ export default function Login({ onLoginSuccess }) {
               </div>
             </div>
 
-            {/* Confirm Password (only for registration) */}
             {!isLogin && (
               <div>
                 <label className="block text-sm font-medium text-gray-300 mb-2">
@@ -239,7 +228,6 @@ export default function Login({ onLoginSuccess }) {
               </div>
             )}
 
-            {/* Botão Submit */}
             <button
               type="submit"
               disabled={loading}
@@ -256,7 +244,6 @@ export default function Login({ onLoginSuccess }) {
             </button>
           </form>
 
-          {/* Footer */}
           <div className="mt-6 text-center text-sm text-gray-400">
             {isLogin ? (
               <p>
@@ -282,7 +269,6 @@ export default function Login({ onLoginSuccess }) {
           </div>
         </div>
 
-        {/* Info Adicional */}
         <div className="mt-6 text-center text-gray-400 text-sm">
           <p>© 2025 NetSentry - Network Monitoring System</p>
           <p className="mt-1 text-gray-500">Developed by Bernardo Martins</p>

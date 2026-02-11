@@ -96,7 +96,7 @@ export default function AddHostModal({
 
         setTimeout(() => {
           onClose();
-          onSuccess(); // sempre depois do close se você estiver usando timeout
+          onSuccess();
         }, 1200);
       }
     } catch (error) {
@@ -205,7 +205,7 @@ export default function AddHostModal({
               </label>
               <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                 {[
-                  { value: "server", label: "Servidor", icon: "Server" },
+                  { value: "server", label: "Server", icon: "Server" },
                   {
                     value: "database",
                     label: "DataBase",

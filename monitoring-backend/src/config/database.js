@@ -1,7 +1,6 @@
  const { Sequelize } = require('sequelize');
  const logger = require('../utils/logger');
 
- // config do Sequelize
  const sequelize = new Sequelize({
     dialect: 'sqlite',
     storage: process.env.DB_STORAGE || './datavase.sqlite',
@@ -19,7 +18,6 @@
     }
  });
 
- // testando a conexão
  const testConnection = async () =>  {
     try {
         await sequelize.authenticate();
@@ -31,7 +29,6 @@
     }
  };
 
- // Sincronizando os modelos com o banco
  const syncDatabase = async (force = false) => {
     try {
         await sequelize.sync({ force });

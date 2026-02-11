@@ -11,7 +11,12 @@ import AddHostModal from "./hostConfig";
 export default function StyleDashboard() {
   const [devices, setDevices] = useState([]);
   const [alerts, setAlerts] = useState([]);
-  const [stats, setStats] = useState({ total: 0, online: 0, offline: 0, warning: 0 });
+  const [stats, setStats] = useState({
+    total: 0,
+    online: 0,
+    offline: 0,
+    warning: 0,
+  });
   const [filter, setFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [selectedDevice, setSelectedDevice] = useState(null);
@@ -20,15 +25,16 @@ export default function StyleDashboard() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingDevice, setEditingDevice] = useState(null);
 
-  // Carregar dados do backend
   const loadData = async () => {
     try {
-      console.log('Loading data...');
+      console.log("Loading data...");
       setError(null);
-      
+
       const [devicesRes, alertsRes] = await Promise.all([
-        devicesAPI.getAll({ status: statusFilter !== 'all' ? statusFilter : undefined }),
-        alertsAPI.getRecent()
+        devicesAPI.getAll({
+          status: statusFilter !== "all" ? statusFilter : undefined,
+        }),
+        alertsAPI.getRecent(),
       ]);
 
       if (devicesRes.data.success) {
@@ -43,26 +49,55 @@ export default function StyleDashboard() {
       }
 
       setLoading(false);
-      console.log('Data loaded successfully.');
+      console.log("Data loaded successfully.");
     } catch (err) {
-      console.error('Error loading data:', err);
-      setError('Error connecting to the server. Using sample data.');
-      
-      // Dados de fallback
+      console.error("Error loading data:", err);
+      setError("Error connecting to the server. Using sample data.");
+
       setDevices([
-        { id: 1, name: "Server 01", ip: "192.168.1.10", type: "server", status: "online", responseTime: 45, lastCheck: new Date().toISOString() },
-        { id: 2, name: "Database 01", ip: "192.168.1.20", type: "database", status: "warning", responseTime: 120, lastCheck: new Date().toISOString() },
-        { id: 3, name: "Router 01", ip: "192.168.1.1", type: "router", status: "offline", responseTime: 0, lastCheck: new Date().toISOString() }
+        {
+          id: 1,
+          name: "Server 01",
+          ip: "192.168.1.10",
+          type: "server",
+          status: "online",
+          responseTime: 45,
+          lastCheck: new Date().toISOString(),
+        },
+        {
+          id: 2,
+          name: "Database 01",
+          ip: "192.168.1.20",
+          type: "database",
+          status: "warning",
+          responseTime: 120,
+          lastCheck: new Date().toISOString(),
+        },
+        {
+          id: 3,
+          name: "Router 01",
+          ip: "192.168.1.1",
+          type: "router",
+          status: "offline",
+          responseTime: 0,
+          lastCheck: new Date().toISOString(),
+        },
       ]);
       setStats({ total: 3, online: 1, offline: 1, warning: 1 });
       setAlerts([
-        { id: 1, device: "Database 01", message: "High response time", level: "warning", timestamp: new Date().toISOString() }
+        {
+          id: 1,
+          device: "Database 01",
+          message: "High response time",
+          level: "warning",
+          timestamp: new Date().toISOString(),
+        },
       ]);
-      
+
       setLoading(false);
     }
   };
- 
+
   const handleAddHost = () => {
     setEditingDevice(null);
     setShowAddModal(true);
@@ -79,49 +114,48 @@ export default function StyleDashboard() {
   };
 
   const handleModalSuccess = async () => {
-    console.log('Host added/edited — Reloading...');
+    console.log("Host added/edited — Reloading...");
     await loadData();
   };
 
-  // Configurar WebSocket para atualizações em tempo real
   const setupWebSocket = () => {
-    const token = localStorage.getItem('token');
-    
+    const token = localStorage.getItem("token");
+
     if (!token) {
-      console.warn('Token not found; the WebSocket will not connect');
+      console.warn("Token not found; the WebSocket will not connect");
       return;
     }
-    
+
     try {
       websocketService.connect(token);
 
       websocketService.onStatsUpdate((newStats) => {
-        console.log('Stats updated via WebSocket:', newStats);
+        console.log("Stats updated via WebSocket:", newStats);
         if (newStats.devices) {
           setStats(newStats.devices);
         }
       });
 
       websocketService.onDeviceStatus((device) => {
-        console.log('Device updated via WebSocket:', device);
-        setDevices(prev => 
-          prev.map(d => d.id === device.id ? { ...d, ...device } : d)
+        console.log("Device updated via WebSocket:", device);
+        setDevices((prev) =>
+          prev.map((d) => (d.id === device.id ? { ...d, ...device } : d)),
         );
       });
 
       websocketService.onNewAlert((alert) => {
-        console.log('New alert received via WebSocket:', alert);
-        setAlerts(prev => [alert, ...prev].slice(0, 20));
+        console.log("New alert received via WebSocket:", alert);
+        setAlerts((prev) => [alert, ...prev].slice(0, 20));
       });
 
       websocketService.onDevicesList((devicesList) => {
-        console.log('New WebSocket alert');
+        console.log("New WebSocket alert");
         setDevices(devicesList);
       });
 
-      console.log('WebSocket configured');
+      console.log("WebSocket configured");
     } catch (err) {
-      console.error('Error configuring WebSocket:', err);
+      console.error("Error configuring WebSocket:", err);
     }
   };
 
@@ -132,14 +166,14 @@ export default function StyleDashboard() {
     return () => {
       websocketService.disconnect();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Filtrar devices
   const filteredDevices = devices.filter((device) => {
-    const matchesSearch = device.name.toLowerCase().includes(filter.toLowerCase()) ||
-                         device.ip.includes(filter);
-    const matchesStatus = statusFilter === "all" || device.status === statusFilter;
+    const matchesSearch =
+      device.name.toLowerCase().includes(filter.toLowerCase()) ||
+      device.ip.includes(filter);
+    const matchesStatus =
+      statusFilter === "all" || device.status === statusFilter;
     return matchesSearch && matchesStatus;
   });
 
@@ -176,11 +210,11 @@ export default function StyleDashboard() {
             setStatusFilter={setStatusFilter}
             totalDevices={devices.length}
             filteredCount={filteredDevices.length}
-            onAddHost={handleAddHost} 
+            onAddHost={handleAddHost}
           />
 
-          <DevicesTable 
-            devices={filteredDevices} 
+          <DevicesTable
+            devices={filteredDevices}
             setSelectedDevice={setSelectedDevice}
             onEditDevice={handleEditHost}
             onRefresh={loadData}

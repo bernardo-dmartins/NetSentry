@@ -67,7 +67,6 @@ export default function DevicesTable({ devices, setSelectedDevice, onEditDevice,
     try {
       console.log('Deleting device ID:', deviceId);
       
-      // Make delete request
       await devicesAPI.delete(deviceId);
       
       console.log('Device successfully deleted on backend');
@@ -229,7 +228,6 @@ export default function DevicesTable({ devices, setSelectedDevice, onEditDevice,
         </div>
       </div>
 
-      {/* Delete Confirmation Modal */}
       {confirmDelete && (
         <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
           <div className="bg-gray-800 rounded-lg shadow-2xl max-w-md w-full border border-gray-700 animate-fade-in">
@@ -243,7 +241,6 @@ export default function DevicesTable({ devices, setSelectedDevice, onEditDevice,
               </div>
             </div>
 
-            {/* Content */}
             <div className="px-6 py-6">
               <p className="text-gray-300 mb-2">
                 Are you sure you want to delete the host:
@@ -259,7 +256,6 @@ export default function DevicesTable({ devices, setSelectedDevice, onEditDevice,
               </div>
             </div>
 
-            {/* Footer */}
             <div className="px-6 py-4 bg-gray-900/50 border-t border-gray-700 flex gap-3">
               <button
                 onClick={handleCancelDelete}

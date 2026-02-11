@@ -1,5 +1,7 @@
 {
   "scripts": {
+    "dev": "concurrently \"npm run dev --prefix monitoring-backend\" \"npm start --prefix monitoring-frontend\"",
+    "start": "npm run dev",
     "build": "npm run build --prefix monitoring-frontend",
     "seed:test": "node monitoring-backend/scripts/seedTestUser.js",
     "cypress:open": "cypress open",
