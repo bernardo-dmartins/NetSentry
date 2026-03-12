@@ -30,15 +30,6 @@ const Header = ({ user, onLogout, onOpenSettings }) => {
           <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
         </button>
 
-        {/* Settings */}
-        <button 
-          onClick={onOpenSettings}
-          className="p-2 text-gray-400 hover:text-white hover:bg-gray-800 rounded-lg transition-colors"
-          title="Settings"
-        >
-          <Settings className="w-5 h-5" />
-        </button>
-
         {/* Divider */}
         <div className="w-px h-6 bg-gray-700"></div>
 
@@ -66,7 +57,7 @@ const Header = ({ user, onLogout, onOpenSettings }) => {
                   className="fixed inset-0 z-10" 
                   onClick={() => setShowUserMenu(false)}
                 ></div>
-                <div className="absolute right-0 top-full mt-2 w-48 bg-gray-800 rounded-lg shadow-lg border border-gray-700 z-20">
+                <div className="absolute right-0 top-full mt-2 w-56 bg-gray-800 rounded-lg shadow-lg border border-gray-700 z-20">
                   <div className="p-2">
                     <div className="px-3 py-2 border-b border-gray-700 mb-2">
                       <p className="text-sm font-medium text-white">{user?.username || 'User'}</p>
@@ -76,7 +67,7 @@ const Header = ({ user, onLogout, onOpenSettings }) => {
                     <button 
                       onClick={() => {
                         setShowUserMenu(false);
-                        // Navegar para profile (você pode adicionar essa função)
+                        // Navegar para profile
                       }}
                       className="w-full flex items-center gap-3 px-3 py-2 text-sm text-gray-300 hover:bg-gray-700 rounded-lg transition-colors"
                     >
@@ -92,7 +83,7 @@ const Header = ({ user, onLogout, onOpenSettings }) => {
                       className="w-full flex items-center gap-3 px-3 py-2 text-sm text-gray-300 hover:bg-gray-700 rounded-lg transition-colors"
                     >
                       <Settings className="w-4 h-4" />
-                      Settings
+                      Account Settings
                     </button>
                     
                     <div className="my-1 border-t border-gray-700"></div>

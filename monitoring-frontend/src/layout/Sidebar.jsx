@@ -1,7 +1,6 @@
 import React from 'react';
 import { 
   LayoutDashboard, 
-  Monitor, 
   TrendingUp, 
   Bell, 
   Settings, 
@@ -18,12 +17,6 @@ const Sidebar = ({ currentPage, onNavigate, isCollapsed, onToggleCollapse, user 
       label: 'Dashboard',
       icon: LayoutDashboard,
       path: '/dashboard',
-    },
-    {
-      id: 'hosts',
-      label: 'Hosts',
-      icon: Monitor,
-      path: '/hosts',
     },
     {
       id: 'analytics',
