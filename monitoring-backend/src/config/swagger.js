@@ -10,7 +10,7 @@ const options = {
       description: 'API for real-time monitoring of hosts with alerts and notifications',
       contact: {
         name: 'Bernardo Martins',
-        email: 'contato@example.com'
+        email: 'netsentry.app@gmail.com'
       }
     },
     servers: [
@@ -19,7 +19,7 @@ const options = {
         description: 'Development Server'
       },
       {
-        url: 'https://seu-app.railway.app',
+        url: 'https://netsentry.onrender.com/',
         description: 'Production Server'
       }
     ],
@@ -63,7 +63,7 @@ const options = {
           properties: {
             id: {
               type: 'integer',
-              description: 'Divece ID'
+              description: 'Device ID'
             },
             name: {
               type: 'string',
@@ -71,7 +71,7 @@ const options = {
             },
             ip: {
               type: 'string',
-              description: 'IP adress'
+              description: 'IP address'
             },
             type: {
               type: 'string',
@@ -134,7 +134,7 @@ const options = {
       },
       {
         name: 'Devices',
-        description: 'device management'
+        description: 'Device management'
       },
       {
         name: 'Alerts',
