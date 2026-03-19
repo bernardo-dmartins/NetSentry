@@ -1,7 +1,8 @@
 const express = require('express');
 const router = express.Router();
 const DeviceController = require('../controllers/deviceControllers');
-const { authMiddleware } = require('../middleware/authJWT'); // ⬅️ SÓ authMiddleware, SEM adminMiddleware
+const CheckController = require('../controllers/checkControllers');
+const { authMiddleware } = require('../middleware/authJWT'); 
 
 const wrap = (fn) => (req, res, next) => {
   Promise.resolve(fn(req, res, next)).catch(next);
@@ -14,7 +15,6 @@ const wrap = (fn) => (req, res, next) => {
  *   description: Device management endpoints
  */
 
-// ⚠️ ORDEM IMPORTANTE: Rotas específicas PRIMEIRO!
 
 /**
  * @swagger
@@ -67,17 +67,74 @@ router.get('/:id',
 
 /**
  * @swagger
+ * /api/devices/{id}/checks:
+ *   get:
+ *     summary: List checks for a device
+ *     tags: [Devices]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Device ID
+ */
+router.get('/:id/checks',
+  authMiddleware,
+  CheckController.validateDeviceId,
+  wrap(CheckController.listByDevice)
+);
+
+/**
+ * @swagger
  * /api/devices:
- *   post:
+  *   post:
  *     summary: Create new device
  *     tags: [Devices]
  *     security:
  *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/Device'
+ *     responses:
+ *       201:
+ *         description: Device created successfully
+ *       400:
+ *         description: Validation error
+ *       401:
+ *         description: Unauthorized
  */
 router.post('/',
   authMiddleware,
   DeviceController.validateDevice,
   wrap(DeviceController.create)
+);
+
+/**
+ * @swagger
+ * /api/devices/{id}/checks:
+ *   post:
+ *     summary: Create a check for a device
+ *     tags: [Devices]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Device ID
+ */
+router.post('/:id/checks',
+  authMiddleware,
+  CheckController.validateCreate,
+  wrap(CheckController.createForDevice)
 );
 
 /**
@@ -95,6 +152,20 @@ router.post('/',
  *         schema:
  *           type: string
  *         description: Device ID
+ *     requestBody:
+ *       required: false
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               force:
+ *                 type: boolean
+ *               timeout:
+ *                 type: integer
+ *     responses:
+ *       200:
+ *         description: Check executed successfully
  */
 router.post('/:id/check',
   authMiddleware,
@@ -116,6 +187,31 @@ router.post('/:id/check',
  *         schema:
  *           type: string
  *         description: Device ID
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               name:
+ *                 type: string
+ *               ip:
+ *                 type: string
+ *               type:
+ *                 type: string
+ *                 enum: [server, database, switch, router, pc, other]
+ *               checkUrl:
+ *                 type: string
+ *               port:
+ *                 type: integer
+ *               description:
+ *                 type: string
+ *               isActive:
+ *                 type: boolean
+ *     responses:
+ *       200:
+ *         description: Device updated successfully
  */
 router.put('/:id',
   authMiddleware,
