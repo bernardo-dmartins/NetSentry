@@ -1,6 +1,5 @@
 import axios from 'axios';
 
-// URL base da API
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
 
 // Criar instância do axios
@@ -12,7 +11,6 @@ const api = axios.create({
   timeout: 10000 // 10 segundos
 });
 
-// Interceptor para adicionar token em todas as requisições
 api.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('token');
@@ -28,15 +26,12 @@ api.interceptors.request.use(
   }
 );
 
-// Interceptor para tratar respostas e erros
 api.interceptors.response.use(
   (response) => {
     return response;
   },
   (error) => {
-    // Se token expirou ou é inválido
     if (error.response?.status === 401) {
-      // Limpar dados do localStorage
       localStorage.removeItem('token');
       localStorage.removeItem('user');
       
@@ -46,7 +41,6 @@ api.interceptors.response.use(
       }
     }
 
-    // Se erro de conexão
     if (!error.response) {
       console.error('Server connection error');
     }
@@ -55,7 +49,6 @@ api.interceptors.response.use(
   }
 );
 
-// Exportar métodos da API
 
 // Auth
 export const authAPI = {
@@ -92,7 +85,7 @@ export const devicesAPI = {
   check: (id) => 
     api.post(`/devices/${id}/check`),
   
-  checkDevice: (id) => // ⬅️ ALIAS para compatibilidade com DevicesTable
+  checkDevice: (id) => 
     api.post(`/devices/${id}/check`),
   
   getStats: () => 
@@ -121,6 +114,28 @@ export const alertsAPI = {
   
   cleanup: (days = 30) => 
     api.delete('/alerts/cleanup', { params: { days } })
+};
+
+// Checks
+export const checksAPI = {
+  listByDevice: (deviceId) =>
+    api.get(`/devices/${deviceId}/checks`),
+  createForDevice: (deviceId, data) =>
+    api.post(`/devices/${deviceId}/checks`, data),
+  getById: (id) =>
+    api.get(`/checks/${id}`),
+  update: (id, data) =>
+    api.put(`/checks/${id}`, data),
+  delete: (id) =>
+    api.delete(`/checks/${id}`),
+  run: (id) =>
+    api.post(`/checks/${id}/run`),
+  results: (id, params = {}) =>
+    api.get(`/checks/${id}/results`, { params }),
+  history: (id, params = {}) =>
+    api.get(`/checks/${id}/history`, { params }),
+  stats: (id, params = {}) =>
+    api.get(`/checks/${id}/stats`, { params }),
 };
 
 export default api;

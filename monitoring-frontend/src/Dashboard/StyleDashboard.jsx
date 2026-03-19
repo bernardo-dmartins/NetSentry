@@ -7,6 +7,7 @@ import Filters from "./Filters";
 import AlertsList from "./AlertsList";
 import DeviceDetails from "./DeviceDetails";
 import AddHostModal from "./hostConfig";
+import ChecksPanel from "./ChecksPanel";
 
 export default function StyleDashboard() {
   const [devices, setDevices] = useState([]);
@@ -24,6 +25,7 @@ export default function StyleDashboard() {
   const [error, setError] = useState(null);
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingDevice, setEditingDevice] = useState(null);
+  const useMocks = process.env.REACT_APP_USE_MOCKS === "true";
 
   const loadData = async () => {
     try {
@@ -52,47 +54,50 @@ export default function StyleDashboard() {
       console.log("Data loaded successfully.");
     } catch (err) {
       console.error("Error loading data:", err);
-      setError("Error connecting to the server. Using sample data.");
-
-      setDevices([
-        {
-          id: 1,
-          name: "Server 01",
-          ip: "192.168.1.10",
-          type: "server",
-          status: "online",
-          responseTime: 45,
-          lastCheck: new Date().toISOString(),
-        },
-        {
-          id: 2,
-          name: "Database 01",
-          ip: "192.168.1.20",
-          type: "database",
-          status: "warning",
-          responseTime: 120,
-          lastCheck: new Date().toISOString(),
-        },
-        {
-          id: 3,
-          name: "Router 01",
-          ip: "192.168.1.1",
-          type: "router",
-          status: "offline",
-          responseTime: 0,
-          lastCheck: new Date().toISOString(),
-        },
-      ]);
-      setStats({ total: 3, online: 1, offline: 1, warning: 1 });
-      setAlerts([
-        {
-          id: 1,
-          device: "Database 01",
-          message: "High response time",
-          level: "warning",
-          timestamp: new Date().toISOString(),
-        },
-      ]);
+      if (useMocks) {
+        setError("Error connecting to the server. Using sample data.");
+        setDevices([
+          {
+            id: 1,
+            name: "Server 01",
+            ip: "192.168.1.10",
+            type: "server",
+            status: "online",
+            responseTime: 45,
+            lastCheck: new Date().toISOString(),
+          },
+          {
+            id: 2,
+            name: "Database 01",
+            ip: "192.168.1.20",
+            type: "database",
+            status: "warning",
+            responseTime: 120,
+            lastCheck: new Date().toISOString(),
+          },
+          {
+            id: 3,
+            name: "Router 01",
+            ip: "192.168.1.1",
+            type: "router",
+            status: "offline",
+            responseTime: 0,
+            lastCheck: new Date().toISOString(),
+          },
+        ]);
+        setStats({ total: 3, online: 1, offline: 1, warning: 1 });
+        setAlerts([
+          {
+            id: 1,
+            device: "Database 01",
+            message: "High response time",
+            level: "warning",
+            timestamp: new Date().toISOString(),
+          },
+        ]);
+      } else {
+        setError("Error connecting to the server.");
+      }
 
       setLoading(false);
     }
@@ -224,6 +229,7 @@ export default function StyleDashboard() {
         <div className="space-y-6">
           <AlertsList alerts={alerts} />
           <DeviceDetails device={selectedDevice} />
+          <ChecksPanel device={selectedDevice} />
         </div>
       </div>
 

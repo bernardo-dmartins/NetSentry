@@ -2,9 +2,9 @@ import { CheckCircle, XCircle, AlertTriangle, Clock, Server, Database, Wifi, Rou
 
 export const getStatusIcon = (status) => {
   switch (status) {
-    case 'up':
+    case 'online':
       return <CheckCircle className="w-4 h-4 text-green-400" />;
-    case 'down':
+    case 'offline':
       return <XCircle className="w-4 h-4 text-red-400" />;
     case 'warning':
       return <AlertTriangle className="w-4 h-4 text-yellow-400" />;
@@ -30,9 +30,9 @@ export const getDeviceIcon = (type) => {
 
 export const getStatusColor = (status) => {
   switch (status) {
-    case 'up':
+    case 'online':
       return 'text-green-400 bg-green-400/10 border-green-400/20';
-    case 'down':
+    case 'offline':
       return 'text-red-400 bg-red-400/10 border-red-400/20';
     case 'warning':
       return 'text-yellow-400 bg-yellow-400/10 border-yellow-400/20';

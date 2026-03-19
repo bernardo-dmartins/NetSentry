@@ -1,12 +1,13 @@
-import React, { useState, useEffect, lazy, Suspense } from "react";
-import Layout from "./components/Layout/Layout";
 
+import React, { useState, useEffect, lazy, Suspense } from "react";
+import Layout from "./layout/Layout";
+
+// ===== LAZY LOADING - Componentes carregados sob demanda =====
 const Login = lazy(() => import("./Auth/Login"));
 const StyleDashboard = lazy(() => import("./Dashboard/StyleDashboard"));
 const UserSettings = lazy(() => import("./Settings/UserSettings"));
-const AnalyticsPage = lazy(
-  () => import("./components/Analytics/AnalyticsPage"),
-);
+const AnalyticsPage = lazy(() => import("./Analytics/AnalyticsPage"));
+const SystemSettings = lazy(() => import("./Settings/SystemSettings"));
 
 const PageLoader = () => (
   <div className="flex items-center justify-center min-h-[60vh]">
@@ -39,7 +40,7 @@ export default function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [showSettings, setShowSettings] = useState(false);
+  const [showAccountSettings, setShowAccountSettings] = useState(false);
   const [currentPage, setCurrentPage] = useState("dashboard");
 
   useEffect(() => {
@@ -67,15 +68,11 @@ export default function App() {
   };
 
   const handleNavigate = (pageId) => {
-    if (pageId === "settings") {
-      setShowSettings(true);
-      return;
-    }
     setCurrentPage(pageId);
   };
-
-  const handleOpenSettings = () => {
-    setShowSettings(true);
+    
+  const handleOpenAccountSettings = () => {
+    setShowAccountSettings(true);
   };
 
   if (loading) {
@@ -93,7 +90,6 @@ export default function App() {
   const renderPage = () => {
     switch (currentPage) {
       case "dashboard":
-      case "hosts":
         return (
           <Suspense fallback={<PageLoader />}>
             <StyleDashboard />
@@ -106,6 +102,13 @@ export default function App() {
             <AnalyticsPage />
           </Suspense>
         );
+
+      case 'settings':
+        return (
+          <Suspense fallback={<PageLoader />}> 
+           <SystemSettings/>
+          </Suspense>
+        );  
 
       case "alerts":
         return (
@@ -178,14 +181,14 @@ export default function App() {
         onNavigate={handleNavigate}
         user={user}
         onLogout={handleLogout}
-        onOpenSettings={handleOpenSettings}
+        onOpenSettings={handleOpenAccountSettings}
       >
         {renderPage()}
       </Layout>
 
-      {showSettings && (
+      {showAccountSettings && (
         <Suspense fallback={<ModalLoader />}>
-          <UserSettings onClose={() => setShowSettings(false)} />
+          <UserSettings onClose={() => setShowAccountSettings(false)} />
         </Suspense>
       )}
     </>
