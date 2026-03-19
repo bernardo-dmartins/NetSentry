@@ -1,96 +1,186 @@
-const cron = require('node-cron');
-const monitoringService = require('../services/monitoringService');
-const emailService = require('../services/emailService');
-const websocketService = require('../services/websocketService');
-const Device = require('../models/Device');
-const Alert = require('../models/Alert');
-const logger = require('../utils/logger');
+const cron = require("node-cron");
+const { Op } = require("sequelize");
+const monitoringService = require("../services/monitoringService");
+const emailService = require("../services/emailService");
+const websocketService = require("../services/websocketService");
+const Device = require("../models/Device");
+const DeviceCheck = require("../models/DeviceCheck");
+const CheckResult = require("../models/CheckResult");
+const Alert = require("../models/Alert");
+const logger = require("../utils/logger");
 
 class MonitoringJob {
   constructor() {
     this.jobs = [];
+    this.isRunning = false;
+    this.activeChecks = new Set();
+    this.maxConcurrentChecks = parseInt(process.env.MAX_CONCURRENT_CHECKS, 10) || 20;
+    this.globalCycleInterval = parseInt(process.env.GLOBAL_CYCLE_INTERVAL, 10) || 10000;
+    this.stats = {
+      totalExecutions: 0,
+      successfulChecks: 0,
+      failedChecks: 0,
+      skippedChecks: 0,
+      lastCycleTime: 0,
+      averageCheckTime: 0,
+    };
   }
 
-  // Start all jobs
   start() {
-    this.startDeviceMonitoring();
+    if (this.isRunning) {
+      logger.warn("Monitoring jobs already running");
+      return;
+    }
+
+    this.isRunning = true;
+
+    this.startCheckMonitoring();
     this.startStatsUpdate();
     this.startDailyReport();
     this.startAlertCleanup();
+    this.startCheckResultsCleanup();
 
-    logger.info('Monitoring jobs started');
+    logger.info("Monitoring jobs started", {
+      maxConcurrentChecks: this.maxConcurrentChecks,
+      globalCycleInterval: this.globalCycleInterval,
+    });
   }
 
-  // Job: Monitor devices (every 30 seconds or as configured)
-  startDeviceMonitoring() {
-    const interval = process.env.MONITORING_INTERVAL || 30000; // 30 seconds
-    const cronExpression = this.convertMillisecondsToCron(interval);
+  startCheckMonitoring() {
+    const seconds = Math.max(1, Math.floor(this.globalCycleInterval / 1000));
+    const cronExpression = `*/${seconds} * * * * *`;
 
     const job = cron.schedule(cronExpression, async () => {
-      try {
-        logger.debug('Executing monitoring cycle...');
-        await monitoringService.checkAllDevices();
+      if (!this.isRunning) return;
 
-        // Broadcast updated statistics via WebSocket
+      const cycleStart = Date.now();
+
+      try {
+        const now = new Date();
+        const dueChecks = await DeviceCheck.findAll({
+          where: {
+            isActive: true,
+            [Op.or]: [{ nextRunAt: null }, { nextRunAt: { [Op.lte]: now } }],
+          },
+          include: [
+            {
+              model: Device,
+              as: "device",
+              where: { isActive: true },
+            },
+          ],
+          order: [["nextRunAt", "ASC"]],
+        });
+
+        if (dueChecks.length === 0) {
+          return;
+        }
+
+        await this.executeChecksWithConcurrencyLimit(dueChecks);
         await websocketService.broadcastStats();
 
+        this.stats.lastCycleTime = Date.now() - cycleStart;
       } catch (error) {
-        logger.error('Error in monitoring job:', error);
+        logger.error("Error in monitoring cycle:", error);
       }
     });
 
-    this.jobs.push({ name: 'deviceMonitoring', job });
-    logger.info(`Job 'deviceMonitoring' scheduled: ${cronExpression}`);
+    this.jobs.push({ name: "checkMonitoring", job });
+    logger.info(`Job 'checkMonitoring' scheduled: ${cronExpression}`);
   }
 
-  // Job: Update statistics via WebSocket (every 10 seconds)
+  async executeChecksWithConcurrencyLimit(checks) {
+    let index = 0;
+    const workers = Array.from(
+      { length: Math.min(this.maxConcurrentChecks, checks.length) },
+      async () => {
+        while (index < checks.length) {
+          const check = checks[index++];
+          await this.executeCheck(check);
+        }
+      }
+    );
+
+    await Promise.all(workers);
+  }
+
+  async executeCheck(check) {
+    if (this.activeChecks.has(check.id)) {
+      this.stats.skippedChecks++;
+      return;
+    }
+
+    this.activeChecks.add(check.id);
+    const startTime = Date.now();
+    this.stats.totalExecutions++;
+
+    try {
+      const result = await monitoringService.checkDeviceCheck(check, check.device);
+      const duration = Date.now() - startTime;
+
+      if (result.status === "offline") {
+        this.stats.failedChecks++;
+      } else {
+        this.stats.successfulChecks++;
+      }
+
+      this.stats.averageCheckTime =
+        (this.stats.averageCheckTime * (this.stats.totalExecutions - 1) + duration) /
+        this.stats.totalExecutions;
+
+      return result;
+    } catch (error) {
+      this.stats.failedChecks++;
+      logger.error(`Check ${check.id} failed:`, error);
+      return null;
+    } finally {
+      this.activeChecks.delete(check.id);
+    }
+  }
+
   startStatsUpdate() {
-    const job = cron.schedule('*/10 * * * * *', async () => {
+    const job = cron.schedule("*/10 * * * * *", async () => {
       try {
         await websocketService.broadcastStats();
       } catch (error) {
-        logger.error('Error updating stats:', error);
+        logger.error("Error updating stats:", error);
       }
     });
 
-    this.jobs.push({ name: 'statsUpdate', job });
-    logger.info('Job \'statsUpdate\' scheduled: every 10 seconds');
+    this.jobs.push({ name: "statsUpdate", job });
+    logger.info("Job 'statsUpdate' scheduled: every 10 seconds");
   }
 
-  // Job: Send daily report (every day at 9h)
   startDailyReport() {
-    const job = cron.schedule('0 9 * * *', async () => {
+    const job = cron.schedule("0 9 * * *", async () => {
       try {
-        logger.info('Sending daily report...');
+        logger.info("Sending daily report...");
 
         const stats = await monitoringService.getStats();
         const devices = await Device.findAll();
         const alerts = await Alert.findAll({
           where: { resolved: false },
-          order: [['timestamp', 'DESC']],
-          limit: 10
+          order: [["timestamp", "DESC"]],
+          limit: 10,
         });
 
         await emailService.sendDailyReport(stats, devices, alerts);
 
-        logger.info('Daily report sent successfully');
-
+        logger.info("Daily report sent successfully");
       } catch (error) {
-        logger.error('Error sending daily report:', error);
+        logger.error("Error sending daily report:", error);
       }
     });
 
-    this.jobs.push({ name: 'dailyReport', job });
-    logger.info('Job \'dailyReport\' scheduled: every day at 9h');
+    this.jobs.push({ name: "dailyReport", job });
+    logger.info("Job 'dailyReport' scheduled: every day at 9 AM");
   }
 
-  // Job: Limpar alertas antigos resolvidos (todo dia às 3h)
   startAlertCleanup() {
-    const job = cron.schedule('0 3 * * *', async () => {
+    const job = cron.schedule("0 3 * * *", async () => {
       try {
-        logger.info('Clearing old alerts...');
-        
-        const { Op } = require('sequelize');
+        logger.info("Cleaning up old alerts...");
+
         const thirtyDaysAgo = new Date();
         thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
@@ -98,56 +188,88 @@ class MonitoringJob {
           where: {
             resolved: true,
             resolvedAt: {
-              [Op.lt]: thirtyDaysAgo
-            }
-          }
+              [Op.lt]: thirtyDaysAgo,
+            },
+          },
         });
 
-        logger.info(`${deletedCount} Old alerts removed`);
-        
+        logger.info(`${deletedCount} old alerts removed`);
       } catch (error) {
-        logger.error('Error clearing alerts:', error);
+        logger.error("Error cleaning up alerts:", error);
       }
     });
 
-    this.jobs.push({ name: 'alertCleanup', job });
-    logger.info('Job \'alertCleanup\' Scheduled: Every day at 3 AM');
+    this.jobs.push({ name: "alertCleanup", job });
+    logger.info("Job 'alertCleanup' scheduled: every day at 3 AM");
   }
 
-  // Convert milliseconds to cron expression
-  convertMillisecondsToCron(ms) {
-    const seconds = Math.floor(ms / 1000);
+  startCheckResultsCleanup() {
+    const job = cron.schedule("0 4 * * *", async () => {
+      try {
+        logger.info("Cleaning up old check results...");
 
-    if (seconds < 60) {
-      return `*/${seconds} * * * * *`;
-    }
+        const retentionDays = parseInt(process.env.CHECK_RESULTS_RETENTION_DAYS, 10) || 90;
+        const cutoffDate = new Date();
+        cutoffDate.setDate(cutoffDate.getDate() - retentionDays);
 
-    const minutes = Math.floor(seconds / 60);
-    if (minutes < 60) {
-      return `*/${minutes} * * * *`;
-    }
+        const deletedCount = await CheckResult.destroy({
+          where: {
+            checkedAt: {
+              [Op.lt]: cutoffDate,
+            },
+          },
+        });
 
-    const hours = Math.floor(minutes / 60);
-    return `0 */${hours} * * *`;
+        logger.info(`${deletedCount} old check results removed`);
+      } catch (error) {
+        logger.error("Error cleaning up check results:", error);
+      }
+    });
+
+    this.jobs.push({ name: "checkResultsCleanup", job });
+    logger.info("Job 'checkResultsCleanup' scheduled: every day at 4 AM");
   }
 
-  // Stop all jobs
   stop() {
+    this.isRunning = false;
+
     this.jobs.forEach(({ name, job }) => {
       job.stop();
       logger.info(`Job '${name}' stopped`);
     });
 
     this.jobs = [];
-    logger.info('All jobs have been stopped');
+    logger.info("All jobs have been stopped");
   }
 
-  // Get status of jobs
   getStatus() {
-    return this.jobs.map(({ name, job }) => ({
-      name,
-      running: job.running || false
-    }));
+    return {
+      jobs: this.jobs.map(({ name, job }) => ({
+        name,
+        running: job.running || false,
+      })),
+      stats: {
+        ...this.stats,
+        activeChecks: this.activeChecks.size,
+        maxConcurrentChecks: this.maxConcurrentChecks,
+      },
+      config: {
+        globalCycleInterval: this.globalCycleInterval,
+        maxConcurrentChecks: this.maxConcurrentChecks,
+      },
+    };
+  }
+
+  resetStats() {
+    this.stats = {
+      totalExecutions: 0,
+      successfulChecks: 0,
+      failedChecks: 0,
+      skippedChecks: 0,
+      lastCycleTime: 0,
+      averageCheckTime: 0,
+    };
+    logger.info("Monitoring stats reset");
   }
 }
 

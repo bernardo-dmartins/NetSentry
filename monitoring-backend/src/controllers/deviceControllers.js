@@ -1,6 +1,7 @@
 const { body, validationResult } = require('express-validator');
 const { Op } = require('sequelize');
 const Device = require('../models/Device');
+const DeviceCheck = require('../models/DeviceCheck');
 const logger = require('../utils/logger');
 const monitoringService = require('../services/monitoringService');
 const redisClient = require('../config/redis');
@@ -152,8 +153,20 @@ class DeviceController {
         description
       });
 
+      // Create default check for backward compatibility
+      const defaultCheck = await DeviceCheck.create({
+        deviceId: device.id,
+        name: "Default Check",
+        type: checkUrl ? "http" : "ping",
+        isDefault: true,
+        config: checkUrl
+          ? { url: checkUrl, port: port ?? null }
+          : { host: device.ip },
+        expected: {}
+      });
+
       // Perform first check
-      await monitoringService.checkDevice(device);
+      await monitoringService.checkDeviceCheck(defaultCheck, device);
 
       // Invalidate all devices list caches
       await redisClient.invalidatePattern('devices:list:*');
@@ -214,6 +227,41 @@ class DeviceController {
         description: description !== undefined ? description : device.description,
         isActive: isActive !== undefined ? isActive : device.isActive
       });
+
+      const defaultCheck = await DeviceCheck.findOne({
+        where: { deviceId: device.id, isDefault: true }
+      });
+
+      if (defaultCheck) {
+        const nextType = (checkUrl !== undefined ? checkUrl : device.checkUrl)
+          ? "http"
+          : "ping";
+        const nextConfig = nextType === "http"
+          ? {
+              url: checkUrl !== undefined ? checkUrl : device.checkUrl,
+              port: port !== undefined ? port : device.port
+            }
+          : { host: ip || device.ip };
+
+        await defaultCheck.update({
+          type: nextType,
+          config: nextConfig
+        });
+      } else {
+        const checkCount = await DeviceCheck.count({ where: { deviceId: device.id } });
+        if (checkCount === 0) {
+          await DeviceCheck.create({
+            deviceId: device.id,
+            name: "Default Check",
+            type: checkUrl ? "http" : "ping",
+            isDefault: true,
+            config: checkUrl
+              ? { url: checkUrl, port: port ?? null }
+              : { host: ip || device.ip },
+            expected: {}
+          });
+        }
+      }
 
       // Invalidate caches
       await redisClient.del(`device:${id}`);
@@ -327,6 +375,7 @@ class DeviceController {
       }
 
       const devices = await Device.findAll();
+      const checks = await DeviceCheck.findAll();
 
       const stats = {
         total: devices.length,
@@ -341,6 +390,13 @@ class DeviceController {
           router: devices.filter(d => d.type === 'router').length,
           pc: devices.filter(d => d.type === 'pc').length,
           other: devices.filter(d => d.type === 'other').length
+        },
+        checks: {
+          total: checks.length,
+          online: checks.filter(c => c.lastStatus === 'online').length,
+          offline: checks.filter(c => c.lastStatus === 'offline').length,
+          warning: checks.filter(c => c.lastStatus === 'warning').length,
+          unknown: checks.filter(c => c.lastStatus === 'unknown').length
         }
       };
 
