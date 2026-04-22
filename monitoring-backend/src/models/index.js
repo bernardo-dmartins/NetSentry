@@ -3,6 +3,7 @@ const Alert = require("./Alert");
 const User = require("./User");
 const DeviceCheck = require("./DeviceCheck");
 const CheckResult = require("./CheckResult");
+const SystemSettings = require("./SystemSettings"); 
 
 Alert.belongsTo(Device, {
   foreignKey: "deviceId",
@@ -31,10 +32,27 @@ CheckResult.belongsTo(DeviceCheck, {
   as: "check",
 });
 
+const models = {
+  Device,
+  Alert,
+  User,
+  DeviceCheck,
+  CheckResult,
+  SystemSettings,
+};
+
+Object.keys(models).forEach((modelName) => {
+  if (models[modelName].associate) {
+    models[modelName].associate(models);
+  }
+});
+
 module.exports = {
   Device,
   Alert,
   User,
   DeviceCheck,
   CheckResult,
+  SystemSettings, 
+  Notification
 };
