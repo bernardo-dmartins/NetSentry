@@ -30,6 +30,7 @@ const DeviceCheck = sequelize.define(
     type: {
       type: DataTypes.ENUM(
         "ping",
+        "packet_loss",
         "tcp_port",
         "http",
         "ssl_certificate",

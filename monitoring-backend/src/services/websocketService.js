@@ -419,6 +419,22 @@ class WebSocketService {
     logger.debug(`Stats broadcasted to ${this.connectedClients.size} clients`);
   }
 
+  sendToUser(userId, event, data) {
+    if (!this.io) return;
+
+    // Enviar para todas as conexões do usuário
+    this.io.to(`user:${userId}`).emit(event, data);
+  }
+
+  handleConnection(socket) {
+    const userId = socket.handshake.auth.userId;
+    
+    // Adicionar usuário a uma sala específica
+    socket.join(`user:${userId}`);
+    
+  }
+  
+
   /**
    * Enviar atualização de status de device para todos
    */

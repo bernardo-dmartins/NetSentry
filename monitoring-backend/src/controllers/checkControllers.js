@@ -9,6 +9,7 @@ const monitoringService = require("../services/monitoringService");
 
 const CHECK_TYPES = [
   "ping",
+  "packet_loss",
   "tcp_port",
   "http",
   "ssl_certificate",
@@ -17,7 +18,12 @@ const CHECK_TYPES = [
 ];
 const DNS_RECORD_TYPES = ["A", "AAAA", "CNAME", "MX", "TXT", "NS"];
 
-const validateCheckSpecifics = (type, config = {}, expected = {}) => {
+const validateCheckSpecifics = (
+  type,
+  config = {},
+  expected = {},
+  thresholds = {}
+) => {
   const errors = [];
 
   if (type === "tcp_port") {
@@ -71,6 +77,48 @@ const validateCheckSpecifics = (type, config = {}, expected = {}) => {
       errors.push({
         field: "expected.status",
         message: "expected.status must be a valid HTTP status code",
+      });
+    }
+  }
+
+  if (type === "packet_loss") {
+    if (
+      config.count !== undefined &&
+      (!Number.isInteger(config.count) || config.count < 1 || config.count > 10)
+    ) {
+      errors.push({
+        field: "config.count",
+        message: "config.count must be an integer between 1 and 10",
+      });
+    }
+
+    const warning = thresholds.warningThreshold;
+    const critical = thresholds.criticalThreshold;
+
+    if (warning !== null && warning !== undefined && (warning < 0 || warning > 100)) {
+      errors.push({
+        field: "warningThreshold",
+        message: "warningThreshold must be between 0 and 100",
+      });
+    }
+
+    if (critical !== null && critical !== undefined && (critical < 0 || critical > 100)) {
+      errors.push({
+        field: "criticalThreshold",
+        message: "criticalThreshold must be between 0 and 100",
+      });
+    }
+
+    if (
+      warning !== null &&
+      warning !== undefined &&
+      critical !== null &&
+      critical !== undefined &&
+      warning >= critical
+    ) {
+      errors.push({
+        field: "warningThreshold|criticalThreshold",
+        message: "warningThreshold must be lower than criticalThreshold",
       });
     }
   }
@@ -188,7 +236,11 @@ class CheckController {
       const validationErrors = validateCheckSpecifics(
         payload.type,
         payload.config,
-        payload.expected
+        payload.expected,
+        {
+          warningThreshold: payload.warningThreshold,
+          criticalThreshold: payload.criticalThreshold,
+        }
       );
       if (validationErrors.length) {
         return res.status(400).json({ success: false, errors: validationErrors });
@@ -265,7 +317,11 @@ class CheckController {
       const validationErrors = validateCheckSpecifics(
         updates.type,
         updates.config,
-        updates.expected
+        updates.expected,
+        {
+          warningThreshold: updates.warningThreshold,
+          criticalThreshold: updates.criticalThreshold,
+        }
       );
       if (validationErrors.length) {
         return res.status(400).json({ success: false, errors: validationErrors });

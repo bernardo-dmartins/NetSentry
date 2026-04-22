@@ -9,11 +9,95 @@ const CheckResult = require("../models/CheckResult");
 const Alert = require("../models/Alert");
 const logger = require("../utils/logger");
 const emailService = require("./emailService");
+const Notification = require('../models/Notifications')
 
 class MonitoringService {
   constructor() {
     this.pingTimeout = parseInt(process.env.PING_TIMEOUT, 10) || 5000;
     this.httpTimeout = parseInt(process.env.HTTP_TIMEOUT, 10) || 5000;
+    this.retryAttempts = parseInt(process.env.MONITORING_RETRIES, 10) || 3;
+    this.notifications = {
+      emailAlerts: true,
+      criticalOnly: false,
+      quietHours: false,
+      quietStart: "22:00",
+      quietEnd: "08:00",
+    };
+  }
+
+  parsePacketLoss(value) {
+    if (value === null || value === undefined) return null;
+    const parsed = parseFloat(value);
+    return Number.isNaN(parsed) ? null : parsed;
+  }
+
+  applySettings(settings = {}) {
+    const monitoring = settings.monitoring || {};
+    if (monitoring.timeout !== undefined && monitoring.timeout !== null) {
+      const timeoutMs = parseInt(monitoring.timeout, 10) * 1000;
+      if (!Number.isNaN(timeoutMs) && timeoutMs > 0) {
+        this.pingTimeout = timeoutMs;
+        this.httpTimeout = timeoutMs;
+      }
+    }
+
+    if (monitoring.retries !== undefined && monitoring.retries !== null) {
+      const retries = parseInt(monitoring.retries, 10);
+      if (!Number.isNaN(retries) && retries >= 1) {
+        this.retryAttempts = retries;
+      }
+    }
+
+    if (settings.notifications) {
+      this.notifications = {
+        ...this.notifications,
+        ...settings.notifications,
+      };
+    }
+  }
+
+  async executeWithRetries(fn, retries) {
+    let attempt = 0;
+    let lastResult = null;
+    while (attempt < retries) {
+      lastResult = await fn();
+      if (lastResult?.success) {
+        return lastResult;
+      }
+      attempt += 1;
+    }
+    return lastResult;
+  }
+
+  isWithinQuietHours() {
+    if (!this.notifications.quietHours) return false;
+    const start = this.notifications.quietStart || "22:00";
+    const end = this.notifications.quietEnd || "08:00";
+
+    const now = new Date();
+    const [startH, startM] = start.split(":").map(Number);
+    const [endH, endM] = end.split(":").map(Number);
+
+    if ([startH, startM, endH, endM].some((n) => Number.isNaN(n))) {
+      return false;
+    }
+
+    const startMinutes = startH * 60 + startM;
+    const endMinutes = endH * 60 + endM;
+    const nowMinutes = now.getHours() * 60 + now.getMinutes();
+
+    if (startMinutes <= endMinutes) {
+      return nowMinutes >= startMinutes && nowMinutes <= endMinutes;
+    }
+
+    return nowMinutes >= startMinutes || nowMinutes <= endMinutes;
+  }
+
+  shouldSendEmail(level) {
+    if (!this.notifications.emailAlerts) return false;
+    if (this.notifications.criticalOnly && level !== "disaster") return false;
+    if (this.isWithinQuietHours() && level !== "disaster") return false;
+    return level === "disaster" || level === "warning";
   }
 
   async checkPing(host, timeoutMs = this.pingTimeout) {
@@ -26,10 +110,12 @@ class MonitoringService {
       });
 
       const responseTime = Date.now() - startTime;
+      const packetLoss = this.parsePacketLoss(result.packetLoss);
 
       return {
         success: result.alive,
         responseTime: result.alive ? Math.round(result.time) : null,
+        packetLoss,
         error: result.alive ? null : "Host unreachable",
       };
     } catch (error) {
@@ -37,6 +123,38 @@ class MonitoringService {
       return {
         success: false,
         responseTime: null,
+        packetLoss: null,
+        error: error.message,
+      };
+    }
+  }
+
+  async checkPacketLoss(host, timeoutMs = this.pingTimeout, count = 4) {
+    try {
+      const startTime = Date.now();
+      const isWindows = process.platform === "win32";
+      const countFlag = isWindows ? "-n" : "-c";
+      const result = await ping.promise.probe(host, {
+        timeout: timeoutMs / 1000,
+        min_reply: 1,
+        extra: [countFlag, String(count)],
+      });
+
+      const responseTime = Date.now() - startTime;
+      const packetLoss = this.parsePacketLoss(result.packetLoss);
+
+      return {
+        success: result.alive,
+        responseTime: result.alive ? Math.round(result.time) : null,
+        packetLoss,
+        error: result.alive ? null : "Host unreachable",
+      };
+    } catch (error) {
+      logger.error(`Error in packet loss check of ${host}:`, error);
+      return {
+        success: false,
+        responseTime: null,
+        packetLoss: null,
         error: error.message,
       };
     }
@@ -103,6 +221,23 @@ class MonitoringService {
       status = "online";
     } else if (result.error) {
       status = "offline";
+    }
+
+    if (check.type === "packet_loss" && result.packetLoss !== null && result.packetLoss !== undefined) {
+      if (
+        check.criticalThreshold !== null &&
+        check.criticalThreshold !== undefined &&
+        result.packetLoss >= check.criticalThreshold
+      ) {
+        return "offline";
+      }
+      if (
+        check.warningThreshold !== null &&
+        check.warningThreshold !== undefined &&
+        result.packetLoss >= check.warningThreshold
+      ) {
+        return "warning";
+      }
     }
 
     if (check.type === "ssl_certificate" && result.metadata?.expiresInDays !== undefined) {
@@ -277,9 +412,28 @@ class MonitoringService {
     let result;
     const config = check.config || {};
 
+    const retries = Math.max(
+      1,
+      parseInt(config.retries ?? this.retryAttempts, 10) || 1
+    );
+
     if (check.type === "ping") {
       const host = config.host || device.ip;
-      result = await this.checkPing(host, check.timeoutMs || this.pingTimeout);
+      result = await this.executeWithRetries(
+        () => this.checkPing(host, check.timeoutMs || this.pingTimeout),
+        retries
+      );
+    } else if (check.type === "packet_loss") {
+      const host = config.host || device.ip;
+      const count = config.count ?? 4;
+      result = await this.executeWithRetries(
+        () => this.checkPacketLoss(
+          host,
+          check.timeoutMs || this.pingTimeout,
+          count
+        ),
+        retries
+      );
     } else if (check.type === "http") {
       const url = config.url || device.checkUrl || device.ip;
       const port = config.port ?? device.port ?? null;
@@ -289,11 +443,15 @@ class MonitoringService {
         body: config.body,
         expectedStatus: check.expected?.status,
       };
-      result = await this.checkHttp(
-        url,
-        port,
-        check.timeoutMs || this.httpTimeout,
-        options
+      result = await this.executeWithRetries(
+        () =>
+          this.checkHttp(
+            url,
+            port,
+            check.timeoutMs || this.httpTimeout,
+            options
+          ),
+        retries
       );
     } else if (check.type === "tcp_port") {
       const host = config.host || device.ip;
@@ -305,24 +463,35 @@ class MonitoringService {
           error: "TCP port is required",
         };
       } else {
-        result = await this.checkTcpPort(
-          host,
-          port,
-          check.timeoutMs || this.httpTimeout
+        result = await this.executeWithRetries(
+          () =>
+            this.checkTcpPort(
+              host,
+              port,
+              check.timeoutMs || this.httpTimeout
+            ),
+          retries
         );
       }
     } else if (check.type === "dns") {
       const hostname = config.hostname || device.ip;
       const recordType = config.recordType || "A";
       const expected = check.expected?.values || config.expected || [];
-      result = await this.checkDns(hostname, recordType, expected);
+      result = await this.executeWithRetries(
+        () => this.checkDns(hostname, recordType, expected),
+        retries
+      );
     } else if (check.type === "ssl_certificate") {
       const host = config.host || device.ip;
       const port = config.port ?? 443;
-      result = await this.checkSslCertificate(
-        host,
-        port,
-        check.timeoutMs || this.httpTimeout
+      result = await this.executeWithRetries(
+        () =>
+          this.checkSslCertificate(
+            host,
+            port,
+            check.timeoutMs || this.httpTimeout
+          ),
+        retries
       );
     } else if (check.type === "keyword_match") {
       const url = config.url || device.checkUrl || device.ip;
@@ -332,56 +501,56 @@ class MonitoringService {
         headers: config.headers,
         body: config.body,
       };
-      const startTime = Date.now();
-      const fullUrl = url.startsWith("http")
-        ? url
-        : `http://${url}${port ? `:${port}` : ""}`;
-      const response = await axios({
-        url: fullUrl,
-        method: options.method || "GET",
-        headers: options.headers || undefined,
-        data: options.body || undefined,
-        timeout: check.timeoutMs || this.httpTimeout,
-        validateStatus: (status) => status < 500,
-      });
-      const responseTime = Date.now() - startTime;
+      result = await this.executeWithRetries(async () => {
+        const startTime = Date.now();
+        const fullUrl = url.startsWith("http")
+          ? url
+          : `http://${url}${port ? `:${port}` : ""}`;
+        const response = await axios({
+          url: fullUrl,
+          method: options.method || "GET",
+          headers: options.headers || undefined,
+          data: options.body || undefined,
+          timeout: check.timeoutMs || this.httpTimeout,
+          validateStatus: (status) => status < 500,
+        });
+        const responseTime = Date.now() - startTime;
 
-      const responseBody =
-        typeof response.data === "string"
-          ? response.data
-          : JSON.stringify(response.data ?? "");
+        const responseBody =
+          typeof response.data === "string"
+            ? response.data
+            : JSON.stringify(response.data ?? "");
 
-      const expected = {
-        keyword: check.expected?.keyword,
-        regex: check.expected?.regex,
-      };
+        const expected = {
+          keyword: check.expected?.keyword,
+          regex: check.expected?.regex,
+        };
 
-      let match = false;
-      if (expected.regex) {
-        try {
-          const re = new RegExp(expected.regex);
-          match = re.test(responseBody);
-        } catch (error) {
-          result = {
-            success: false,
-            responseTime,
-            statusCode: response.status,
-            error: "Invalid regex",
-          };
+        let match = false;
+        if (expected.regex) {
+          try {
+            const re = new RegExp(expected.regex);
+            match = re.test(responseBody);
+          } catch (error) {
+            return {
+              success: false,
+              responseTime,
+              statusCode: response.status,
+              error: "Invalid regex",
+            };
+          }
+        } else if (expected.keyword) {
+          match = responseBody.includes(expected.keyword);
         }
-      } else if (expected.keyword) {
-        match = responseBody.includes(expected.keyword);
-      }
 
-      if (!result) {
-        result = {
+        return {
           success: match,
           responseTime,
           statusCode: response.status,
           error: match ? null : "Keyword not found",
           metadata: { matchType: expected.regex ? "regex" : "keyword" },
         };
-      }
+      }, retries);
     } else {
       result = {
         success: false,
@@ -633,7 +802,7 @@ class MonitoringService {
 
       logger.info(`Alert created: ${device.name} - ${message} (${level})`);
 
-      if (level === "disaster" || level === "warning") {
+      if (this.shouldSendEmail(level)) {
         await emailService.sendAlertEmail(alert, device);
       }
 
@@ -708,6 +877,41 @@ class MonitoringService {
       logger.error("Error getting statistics:", error);
       throw error;
     }
+  }
+}
+
+  async function handleDeviceOffline(device) {
+    const users = await User.findAll({ where: { role: 'admin'} });
+
+    for (const user of users) {
+      await Notification.createDeviceOffline(device. user.id);
+
+      websocketService.sendToUser(user.id, 'new-notification', {
+        id: notification.id,
+        type: 'alert',
+        severity: 'critical',
+        title: 'Device offline',
+        message: `${device.name} is offline`,
+        timestamp: new Date().toISOString(),
+        read: false
+      })
+    }
+  }
+
+  async function handleDeviceRecovery(device) {
+  const users = await User.findAll({ where: { role: 'admin' } });
+  
+  for (const user of users) {
+    await Notification.createDeviceRecovery(device, user.id);
+  }
+}
+
+// Response time alto
+async function handleHighResponseTime(device, responseTime) {
+  const users = await User.findAll({ where: { role: 'admin' } });
+  
+  for (const user of users) {
+    await Notification.createHighResponseTime(device, responseTime, user.id);
   }
 }
 

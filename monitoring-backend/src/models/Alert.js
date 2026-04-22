@@ -1,6 +1,5 @@
 const { DataTypes } = require('sequelize');
 const { sequelize } = require('../config/database');
-const Device = require('./Device');
 
 const Alert = sequelize.define('Alert', {
   id: {
@@ -73,11 +72,8 @@ const Alert = sequelize.define('Alert', {
   ]
 });
 
-// Relação com Device
-Alert.belongsTo(Device, { foreignKey: 'deviceId', as: 'deviceInfo' });
-Device.hasMany(Alert, { foreignKey: 'deviceId', as: 'alerts' });
 
-// Método para reconhecer alerta
+// Recognize alert
 Alert.prototype.acknowledge = async function(username) {
   this.acknowledged = true;
   this.acknowledgedBy = username;
@@ -85,7 +81,7 @@ Alert.prototype.acknowledge = async function(username) {
   await this.save();
 };
 
-// Método para resolver alerta
+// Resolve alert
 Alert.prototype.resolve = async function() {
   this.resolved = true;
   this.resolvedAt = new Date();

@@ -5,7 +5,7 @@ const http = require("http");
 const cors = require("cors");
 const helmet = require("helmet");
 const compression = require("compression");
-const rateLimit = require("express-rate-limit");
+require("./models");
 
 const logger = require("./utils/logger");
 const {
@@ -18,10 +18,16 @@ const redisClient = require("./config/redis");
 
 const websocketService = require("./services/websocketService");
 const monitoringJob = require("./jobs/monitoringJob");
+const emailService = require("./services/emailService");
 
 const authRoutes = require("./routes/auth");
 const deviceRoutes = require("./routes/devices");
 const alertRoutes = require("./routes/alerts");
+const checkRoutes = require("./routes/checks");
+const settingRoutes = require("./routes/settings");
+const analyticsRoutes = require("./routes/analytics");
+const notificationsRoutes = require ("./routes/notifications")
+const { rateLimitMiddleware } = require("./middleware/authJWT");
 
 const { notFoundHandler, errorHandler } = require("./middleware/errorHandler");
 
@@ -44,6 +50,7 @@ class Application {
 
       await this.setupDatabase();
       await this.setupRedis();
+      this.setupEmailService();
       this.setupMiddlewares();
       this.setupRoutes();
       this.setupWebSocket();
@@ -92,6 +99,17 @@ class Application {
     }
   }
 
+  setupEmailService() {
+    emailService.initialize();
+
+    if (emailService.isInitialized()) {
+      logger.info("Email service initialized and ready");
+      return;
+    }
+
+    logger.warn("Email service disabled (missing or invalid SMTP config)");
+  }
+
   setupMiddlewares() {
     this.app.use(
       helmet({
@@ -133,38 +151,15 @@ class Application {
       return;
     }
 
-    const limiter = rateLimit({
-      windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS, 10) || 900000,
-      max: isTest
-        ? 1000
-        : parseInt(process.env.RATE_LIMIT_MAX_REQUESTS, 10) || 100,
-      standardHeaders: true,
-      legacyHeaders: false,
-      message: {
-        success: false,
+    this.app.use(
+      "/api/",
+      rateLimitMiddleware({
+        windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS, 10) || 900000,
+        max: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS, 10) || 100,
         message: "Too many requests from this IP. Please try again later.",
-      },
-      handler: (req, res) => {
-        logger.warn("Rate limit exceeded", {
-          ip: req.ip,
-          path: req.path,
-          method: req.method,
-        });
-        res.status(429).json({
-          success: false,
-          message: "Too many requests. Please try again later.",
-        });
-      },
-      skip: (req) => {
-        if (req.path === "/health") return true;
-        if (isTest) return true;
-        const userAgent = req.get("user-agent") || "";
-        if (userAgent.toLowerCase().includes("cypress")) return true;
-        return false;
-      },
-    });
-
-    this.app.use("/api/", limiter);
+        keyGenerator: (req) => req.ip || "unknown",
+      }),
+    );
   }
 
   setupRequestLogging() {
@@ -211,6 +206,10 @@ class Application {
     this.app.use("/api/auth", authRoutes);
     this.app.use("/api/devices", deviceRoutes);
     this.app.use("/api/alerts", alertRoutes);
+    this.app.use("/api/checks", checkRoutes);
+    this.app.use('/api/settings', settingRoutes);
+    this.app.use("/api/analytics", analyticsRoutes);
+    this.app.use("/api/notifications", notificationsRoutes);
 
     if (process.env.NODE_ENV === "production") {
       const path = require("path");

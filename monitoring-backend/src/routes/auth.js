@@ -3,7 +3,6 @@ const router = express.Router();
 const AuthController = require('../controllers/authControllers');
 const { authMiddleware, rateLimitMiddleware } = require('../middleware/authJWT');
 
-// Wrapper para métodos estáticos
 const wrap = (fn) => (req, res, next) => {
   Promise.resolve(fn(req, res, next)).catch(next);
 };
@@ -247,6 +246,25 @@ router.put('/profile',
  * /api/auth/logout:
  *   post:
  *     summary: User logout
+ *     tags: [Auth]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Logout successful
+ *       401:
+ *         description: Not authenticated
+ */
+router.post('/logout',
+  authMiddleware,
+  wrap(AuthController.logout)
+);
+
+/**
+ * @swagger
+ * /api/auth/sessions:
+ *   get:
+ *     summary: Get active sessions (admin only)
  *     tags: [Auth]
  *     security:
  *       - bearerAuth: []

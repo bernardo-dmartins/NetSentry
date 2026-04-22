@@ -25,7 +25,7 @@ const Device = sequelize.define('Device', {
         }
     },
     type: {
-        type: DataTypes.ENUM('server', 'Database', 'switch', 'router', 'pc', 'other'),
+        type: DataTypes.ENUM('server', 'database', 'switch', 'router', 'pc', 'other'),
         defaultValue: 'server'
     },
     status: {

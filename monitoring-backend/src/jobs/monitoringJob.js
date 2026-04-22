@@ -9,6 +9,7 @@ const CheckResult = require("../models/CheckResult");
 const Alert = require("../models/Alert");
 const logger = require("../utils/logger");
 
+
 class MonitoringJob {
   constructor() {
     this.jobs = [];
@@ -16,6 +17,7 @@ class MonitoringJob {
     this.activeChecks = new Set();
     this.maxConcurrentChecks = parseInt(process.env.MAX_CONCURRENT_CHECKS, 10) || 20;
     this.globalCycleInterval = parseInt(process.env.GLOBAL_CYCLE_INTERVAL, 10) || 10000;
+    this.dataRetention = null;
     this.stats = {
       totalExecutions: 0,
       successfulChecks: 0,
@@ -77,7 +79,8 @@ class MonitoringJob {
         }
 
         await this.executeChecksWithConcurrencyLimit(dueChecks);
-        await websocketService.broadcastStats();
+        const stats = await monitoringService.getStats();
+        await websocketService.broadcastStats(stats);
 
         this.stats.lastCycleTime = Date.now() - cycleStart;
       } catch (error) {
@@ -87,6 +90,18 @@ class MonitoringJob {
 
     this.jobs.push({ name: "checkMonitoring", job });
     logger.info(`Job 'checkMonitoring' scheduled: ${cronExpression}`);
+  }
+
+  rescheduleCheckMonitoring() {
+    const existingIndex = this.jobs.findIndex((item) => item.name === "checkMonitoring");
+    if (existingIndex !== -1) {
+      this.jobs[existingIndex].job.stop();
+      this.jobs.splice(existingIndex, 1);
+    }
+
+    if (this.isRunning) {
+      this.startCheckMonitoring();
+    }
   }
 
   async executeChecksWithConcurrencyLimit(checks) {
@@ -138,10 +153,12 @@ class MonitoringJob {
     }
   }
 
+
   startStatsUpdate() {
     const job = cron.schedule("*/10 * * * * *", async () => {
       try {
-        await websocketService.broadcastStats();
+        const stats = await monitoringService.getStats();
+        await websocketService.broadcastStats(stats);
       } catch (error) {
         logger.error("Error updating stats:", error);
       }
@@ -181,8 +198,10 @@ class MonitoringJob {
       try {
         logger.info("Cleaning up old alerts...");
 
+        const retentionDays =
+          this.dataRetention?.keepAlerts || 30;
         const thirtyDaysAgo = new Date();
-        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - retentionDays);
 
         const deletedCount = await Alert.destroy({
           where: {
@@ -208,7 +227,10 @@ class MonitoringJob {
       try {
         logger.info("Cleaning up old check results...");
 
-        const retentionDays = parseInt(process.env.CHECK_RESULTS_RETENTION_DAYS, 10) || 90;
+        const retentionDays =
+          this.dataRetention?.keepMetrics ||
+          parseInt(process.env.CHECK_RESULTS_RETENTION_DAYS, 10) ||
+          90;
         const cutoffDate = new Date();
         cutoffDate.setDate(cutoffDate.getDate() - retentionDays);
 
@@ -270,6 +292,23 @@ class MonitoringJob {
       averageCheckTime: 0,
     };
     logger.info("Monitoring stats reset");
+  }
+
+  applySettings(settings) {
+    if (!settings) return;
+
+    const intervalSeconds = settings.monitoring?.interval;
+    if (intervalSeconds) {
+      const nextInterval = intervalSeconds * 1000;
+      if (this.globalCycleInterval !== nextInterval) {
+        this.globalCycleInterval = nextInterval;
+        this.rescheduleCheckMonitoring();
+      }
+    }
+
+    if (settings.dataRetention) {
+      this.dataRetention = settings.dataRetention;
+    }
   }
 }
 
