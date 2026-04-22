@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from "react";
-import { devicesAPI, alertsAPI } from "../../src/frontServices/api";
+import React, { useMemo, useState, useEffect } from "react";
+import { devicesAPI, alertsAPI, settingsAPI } from "../../src/frontServices/api";
 import websocketService from "../../src/frontServices/websocket";
 import StatsCards from "./StatsCards";
 import DevicesTable from "./DevicesTable";
@@ -25,6 +25,12 @@ export default function StyleDashboard() {
   const [error, setError] = useState(null);
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingDevice, setEditingDevice] = useState(null);
+  const [refreshRate, setRefreshRate] = useState(10);
+  const [notificationsSettings, setNotificationsSettings] = useState({
+    quietHours: false,
+    quietStart: "22:00",
+    quietEnd: "08:00",
+  });
   const useMocks = process.env.REACT_APP_USE_MOCKS === "true";
 
   const loadData = async () => {
@@ -149,6 +155,9 @@ export default function StyleDashboard() {
       });
 
       websocketService.onNewAlert((alert) => {
+        if (isQuietHours && alert?.level !== "disaster") {
+          return;
+        }
         console.log("New alert received via WebSocket:", alert);
         setAlerts((prev) => [alert, ...prev].slice(0, 20));
       });
@@ -164,14 +173,97 @@ export default function StyleDashboard() {
     }
   };
 
+  const isQuietHours = useMemo(() => {
+    if (!notificationsSettings.quietHours) return false;
+    const [startH, startM] = (notificationsSettings.quietStart || "22:00")
+      .split(":")
+      .map(Number);
+    const [endH, endM] = (notificationsSettings.quietEnd || "08:00")
+      .split(":")
+      .map(Number);
+
+    if ([startH, startM, endH, endM].some((n) => Number.isNaN(n))) {
+      return false;
+    }
+
+    const now = new Date();
+    const nowMinutes = now.getHours() * 60 + now.getMinutes();
+    const startMinutes = startH * 60 + startM;
+    const endMinutes = endH * 60 + endM;
+
+    if (startMinutes <= endMinutes) {
+      return nowMinutes >= startMinutes && nowMinutes <= endMinutes;
+    }
+
+    return nowMinutes >= startMinutes || nowMinutes <= endMinutes;
+  }, [notificationsSettings]);
+
   useEffect(() => {
-    loadData();
     setupWebSocket();
 
     return () => {
       websocketService.disconnect();
     };
+  }, [isQuietHours]);
+
+  useEffect(() => {
+    const loadSettings = async () => {
+      try {
+        const response = await settingsAPI.getSystem();
+        if (response.data?.success) {
+          const dashboardSettings = response.data.data.dashboard || {};
+          const notifications = response.data.data.notifications || {};
+          setRefreshRate(dashboardSettings.refreshRate || 10);
+          setNotificationsSettings((prev) => ({
+            ...prev,
+            ...notifications,
+          }));
+        }
+      } catch (error) {
+        // ignore settings load errors
+      }
+    };
+
+    const handleSettingsUpdated = (event) => {
+      const data = event?.detail;
+      if (data?.dashboard?.refreshRate) {
+        setRefreshRate(data.dashboard.refreshRate);
+      }
+      if (data?.notifications) {
+        setNotificationsSettings((prev) => ({
+          ...prev,
+          ...data.notifications,
+        }));
+      }
+    };
+
+    loadSettings();
+    window.addEventListener("systemSettings:updated", handleSettingsUpdated);
+
+    return () => {
+      window.removeEventListener("systemSettings:updated", handleSettingsUpdated);
+    };
   }, []);
+
+  useEffect(() => {
+    const handleSearchUpdated = (event) => {
+      const term = event?.detail || "";
+      setFilter(term);
+    };
+
+    window.addEventListener("globalSearch:updated", handleSearchUpdated);
+    return () => {
+      window.removeEventListener("globalSearch:updated", handleSearchUpdated);
+    };
+  }, []);
+
+  useEffect(() => {
+    loadData();
+    if (!refreshRate) return undefined;
+    const intervalMs = Math.max(5, refreshRate) * 1000;
+    const intervalId = setInterval(loadData, intervalMs);
+    return () => clearInterval(intervalId);
+  }, [refreshRate, statusFilter]);
 
   const filteredDevices = devices.filter((device) => {
     const matchesSearch =

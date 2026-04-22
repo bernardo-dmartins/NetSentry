@@ -4,6 +4,7 @@ import { checksAPI } from "../frontServices/api";
 
 const CHECK_TYPES = [
   "ping",
+  "packet_loss",
   "tcp_port",
   "http",
   "ssl_certificate",
@@ -13,6 +14,8 @@ const CHECK_TYPES = [
 
 const buildDefaultConfig = (type) => {
   switch (type) {
+    case "packet_loss":
+      return { count: 4 };
     case "tcp_port":
       return { port: 80 };
     case "http":

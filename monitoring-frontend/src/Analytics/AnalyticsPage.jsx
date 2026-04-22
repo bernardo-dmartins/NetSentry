@@ -1,64 +1,79 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  TrendingUp, 
-  TrendingDown, 
-  Activity, 
+import {
+  TrendingUp,
+  TrendingDown,
+  Activity,
   Clock,
   AlertTriangle,
   CheckCircle,
   XCircle
 } from 'lucide-react';
-import { LineChart, Line, AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import {
+  LineChart,
+  Line,
+  AreaChart,
+  Area,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ResponsiveContainer
+} from 'recharts';
+import { analyticsAPI } from '../frontServices/api';
 
 const AnalyticsPage = () => {
   const [timeRange, setTimeRange] = useState('24h');
   const [loading, setLoading] = useState(true);
-
-  // Dados simulados para os gráficos
-  const uptimeData24h = [
-    { time: '00:00', uptime: 98, devices: 15 },
-    { time: '04:00', uptime: 97, devices: 15 },
-    { time: '08:00', uptime: 99, devices: 16 },
-    { time: '12:00', uptime: 96, devices: 15 },
-    { time: '16:00', uptime: 98, devices: 16 },
-    { time: '20:00', uptime: 99, devices: 16 },
-    { time: 'Now', uptime: 100, devices: 16 },
-  ];
-
-  const uptimeData7d = [
-    { day: 'Mon', uptime: 98.5, incidents: 2 },
-    { day: 'Tue', uptime: 99.2, incidents: 1 },
-    { day: 'Wed', uptime: 97.8, incidents: 3 },
-    { day: 'Thu', uptime: 99.8, incidents: 0 },
-    { day: 'Fri', uptime: 98.9, incidents: 1 },
-    { day: 'Sat', uptime: 99.5, incidents: 1 },
-    { day: 'Sun', uptime: 100, incidents: 0 },
-  ];
-
-  const responseTimeData = [
-    { time: '00:00', avg: 45, max: 120, min: 12 },
-    { time: '04:00', avg: 38, max: 95, min: 15 },
-    { time: '08:00', avg: 52, max: 145, min: 18 },
-    { time: '12:00', avg: 48, max: 110, min: 20 },
-    { time: '16:00', avg: 42, max: 98, min: 16 },
-    { time: '20:00', avg: 40, max: 88, min: 14 },
-    { time: 'Now', avg: 35, max: 75, min: 12 },
-  ];
-
-  const deviceStatusData = [
-    { name: 'Database-01', uptime: 99.8, downtime: 0.2 },
-    { name: 'Server-01', uptime: 98.5, downtime: 1.5 },
-    { name: 'Router-01', uptime: 99.9, downtime: 0.1 },
-    { name: 'Local-PC', uptime: 97.2, downtime: 2.8 },
-    { name: 'API-Gateway', uptime: 99.5, downtime: 0.5 },
-  ];
+  const [error, setError] = useState('');
+  const [overview, setOverview] = useState(null);
 
   useEffect(() => {
-    // Simular carregamento
-    setTimeout(() => setLoading(false), 800);
+    const loadOverview = async () => {
+      try {
+        setLoading(true);
+        setError('');
+        const response = await analyticsAPI.overview({ range: timeRange });
+        if (response.data?.success) {
+          setOverview(response.data.data);
+        }
+      } catch (err) {
+        setError(err.response?.data?.message || 'Error loading analytics data');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadOverview();
   }, [timeRange]);
 
-  const currentData = timeRange === '24h' ? uptimeData24h : uptimeData7d;
+  const formatBucketLabel = (iso) => {
+    const date = new Date(iso);
+    if (timeRange === '24h') {
+      return date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+    }
+    return date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+  };
+
+  const uptimeSeries = (overview?.uptimeSeries || []).map((item) => ({
+    ...item,
+    label: formatBucketLabel(item.time),
+  }));
+
+  const responseSeries = (overview?.responseTimeSeries || []).map((item) => ({
+    ...item,
+    label: formatBucketLabel(item.time),
+  }));
+
+  const deviceStatusData = overview?.deviceUptime || [];
+  const stats = overview?.stats || {
+    averageUptime: 0,
+    avgResponseTime: 0,
+    totalIncidents: 0,
+    totalDowntimeMinutes: 0,
+  };
 
   const StatCard = ({ icon: Icon, label, value, change, trend, color }) => (
     <div className="bg-gray-900 border border-gray-800 rounded-xl p-6 hover:border-gray-700 transition-all">
@@ -112,6 +127,16 @@ const AnalyticsPage = () => {
     );
   }
 
+  if (error) {
+    return (
+      <div className="p-6">
+        <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-6 text-red-400">
+          {error}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="p-6 space-y-6">
       {/* Header */}
@@ -144,33 +169,25 @@ const AnalyticsPage = () => {
         <StatCard
           icon={CheckCircle}
           label="Average Uptime"
-          value="99.2%"
-          change="+0.8%"
-          trend="up"
+          value={`${stats.averageUptime.toFixed(2)}%`}
           color="bg-green-500/10 text-green-400"
         />
         <StatCard
           icon={Activity}
           label="Avg Response Time"
-          value="42ms"
-          change="-8ms"
-          trend="up"
+          value={`${Math.round(stats.avgResponseTime || 0)}ms`}
           color="bg-blue-500/10 text-blue-400"
         />
         <StatCard
           icon={AlertTriangle}
           label="Total Incidents"
-          value="8"
-          change="-3"
-          trend="up"
+          value={`${stats.totalIncidents}`}
           color="bg-yellow-500/10 text-yellow-400"
         />
         <StatCard
           icon={XCircle}
           label="Total Downtime"
-          value="12m"
-          change="-5m"
-          trend="up"
+          value={`${Math.round(stats.totalDowntimeMinutes || 0)}m`}
           color="bg-red-500/10 text-red-400"
         />
       </div>
@@ -183,7 +200,7 @@ const AnalyticsPage = () => {
         </div>
         
         <ResponsiveContainer width="100%" height={300}>
-          <AreaChart data={currentData}>
+          <AreaChart data={uptimeSeries}>
             <defs>
               <linearGradient id="colorUptime" x1="0" y1="0" x2="0" y2="1">
                 <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3}/>
@@ -192,7 +209,7 @@ const AnalyticsPage = () => {
             </defs>
             <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
             <XAxis 
-              dataKey={timeRange === '24h' ? 'time' : 'day'} 
+              dataKey="label"
               stroke="#9ca3af" 
               style={{ fontSize: '12px' }}
             />
@@ -222,9 +239,9 @@ const AnalyticsPage = () => {
           </div>
           
           <ResponsiveContainer width="100%" height={280}>
-            <LineChart data={responseTimeData}>
+            <LineChart data={responseSeries}>
               <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-              <XAxis dataKey="time" stroke="#9ca3af" style={{ fontSize: '12px' }} />
+              <XAxis dataKey="label" stroke="#9ca3af" style={{ fontSize: '12px' }} />
               <YAxis stroke="#9ca3af" style={{ fontSize: '12px' }} />
               <Tooltip content={<CustomTooltip />} />
               <Legend />
@@ -268,7 +285,11 @@ const AnalyticsPage = () => {
               </div>
               <h3 className="font-semibold text-white">Best Performance</h3>
             </div>
-            <p className="text-sm text-gray-400 mb-2">Router-01 maintains 99.9% uptime</p>
+            <p className="text-sm text-gray-400 mb-2">
+              {deviceStatusData[0]
+                ? `${deviceStatusData[0].name} maintains ${deviceStatusData[0].uptime.toFixed(1)}% uptime`
+                : 'No device data available'}
+            </p>
             <p className="text-xs text-green-400">Excellent reliability</p>
           </div>
 
@@ -279,7 +300,11 @@ const AnalyticsPage = () => {
               </div>
               <h3 className="font-semibold text-white">Needs Attention</h3>
             </div>
-            <p className="text-sm text-gray-400 mb-2">Local-PC has 97.2% uptime</p>
+            <p className="text-sm text-gray-400 mb-2">
+              {deviceStatusData[deviceStatusData.length - 1]
+                ? `${deviceStatusData[deviceStatusData.length - 1].name} has ${deviceStatusData[deviceStatusData.length - 1].uptime.toFixed(1)}% uptime`
+                : 'No device data available'}
+            </p>
             <p className="text-xs text-yellow-400">Consider investigating</p>
           </div>
 
@@ -290,7 +315,9 @@ const AnalyticsPage = () => {
               </div>
               <h3 className="font-semibold text-white">Fastest Response</h3>
             </div>
-            <p className="text-sm text-gray-400 mb-2">Average response time: 35ms</p>
+            <p className="text-sm text-gray-400 mb-2">
+              Average response time: {Math.round(stats.avgResponseTime || 0)}ms
+            </p>
             <p className="text-xs text-blue-400">Optimal performance</p>
           </div>
         </div>
