@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Settings,
   Bell,
@@ -18,10 +18,10 @@ import {
   RotateCcw,
   Icon
 } from 'lucide-react';
+import { settingsAPI } from '../frontServices/api';
 
 const SystemSettings = () => {
-  // Estado das configurações
-  const [settings, setSettings] = useState({
+  const defaultSettings = {
     // Monitoramento
     monitoring: {
       interval: 30,
@@ -73,10 +73,46 @@ const SystemSettings = () => {
       keepMetrics: 365,
       autoCleanup: true,
     },
-  });
+  };
+
+  // Estado das configurações
+  const [settings, setSettings] = useState(defaultSettings);
 
   const [hasChanges, setHasChanges] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+
+  const normalizeSettings = (data) => ({
+    ...defaultSettings,
+    ...data,
+    email: {
+      ...defaultSettings.email,
+      ...(data?.email || {})
+    }
+  });
+
+  const loadSettings = async () => {
+    try {
+      setLoading(true);
+      setError('');
+      const response = await settingsAPI.getSystem();
+      if (response.data?.success) {
+        setSettings(normalizeSettings(response.data.data));
+      }
+    } catch (err) {
+      setError(err.response?.data?.message || 'Error loading system settings');
+    } finally {
+      setLoading(false);
+      setHasChanges(false);
+      setSaveSuccess(false);
+    }
+  };
+
+  useEffect(() => {
+    loadSettings();
+  }, []);
 
   const handleChange = (category, field, value) => {
     setSettings(prev => ({
@@ -87,25 +123,64 @@ const SystemSettings = () => {
         }
     }));
     setHasChanges(true);
-    setSaveSuccess(false)
+    setSaveSuccess(false);
+    setError('');
   };
 
-  const handleSave = () => {
-    console.log('Saving settings:', settings);
-    
-    setTimeout(() => {
+  const handleSave = async () => {
+    try {
+      setSaving(true);
+      setError('');
+      const payload = {
+        monitoring: settings.monitoring,
+        notifications: settings.notifications,
+        dashboard: settings.dashboard,
+        security: settings.security,
+        dataRetention: settings.dataRetention
+      };
+      const response = await settingsAPI.updateSystem(payload);
+      if (response.data?.success) {
+        setSettings(normalizeSettings(response.data.data));
+        window.dispatchEvent(
+          new CustomEvent("systemSettings:updated", {
+            detail: response.data.data,
+          })
+        );
         setSaveSuccess(true);
         setHasChanges(false);
-
         setTimeout(() => setSaveSuccess(false), 3000);
-    }, 500);
-  }
-
-  const handleReset = () => {
-    if (window.confirm('Reset all settings to default values?')) {
-      window.location.reload()
+      }
+    } catch (err) {
+      setError(err.response?.data?.message || 'Error saving settings');
+    } finally {
+      setSaving(false);
     }
-  }
+  };
+
+  const handleReset = async () => {
+    if (window.confirm('Reset all settings to default values?')) {
+      try {
+        setSaving(true);
+        setError('');
+        const response = await settingsAPI.resetSystem();
+        if (response.data?.success) {
+          setSettings(normalizeSettings(response.data.data));
+          window.dispatchEvent(
+            new CustomEvent("systemSettings:updated", {
+              detail: response.data.data,
+            })
+          );
+          setHasChanges(false);
+          setSaveSuccess(true);
+          setTimeout(() => setSaveSuccess(false), 3000);
+        }
+      } catch (err) {
+        setError(err.response?.data?.message || 'Error resetting settings');
+      } finally {
+        setSaving(false);
+      }
+    }
+  };
 
   const SettingSection = ({ icon: Icon, title, children }) => (
     <div className="bg-gray-900 border border-gray-800 rounded-xl p-6 mb-6">
@@ -174,6 +249,17 @@ const SystemSettings = () => {
     />
   );
 
+  if (loading) {
+    return (
+      <div className="p-6 max-w-6xl mx-auto">
+        <div className="bg-gray-900 border border-gray-800 rounded-xl p-6 text-center">
+          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-500 mx-auto mb-3"></div>
+          <p className="text-gray-400">Loading system settings...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="p-6 max-w-6xl mx-auto">
       {/* Header */}
@@ -181,6 +267,12 @@ const SystemSettings = () => {
         <h1 className="text-3xl font-bold text-white mb-2">System Settings</h1>
         <p className="text-gray-400">Configure monitoring behavior, notifications, and system preferences</p>
       </div>
+
+      {error && (
+        <div className="mb-6 bg-red-500/10 border border-red-500/30 rounded-lg p-4 text-red-400 text-sm">
+          {error}
+        </div>
+      )}
 
       {/* Save Bar */}
       {(hasChanges || saveSuccess) && (
@@ -206,10 +298,11 @@ const SystemSettings = () => {
             {hasChanges && (
               <button
                 onClick={handleSave}
-                className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors"
+                disabled={saving}
+                className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
               >
                 <Save className="w-4 h-4" />
-                Save
+                {saving ? 'Saving...' : 'Save'}
               </button>
             )}
           </div>
@@ -509,7 +602,8 @@ const SystemSettings = () => {
         <div className="flex items-center gap-3">
           <button
             onClick={handleReset}
-            className="flex items-center gap-2 px-4 py-2 text-gray-400 hover:text-white hover:bg-gray-800 rounded-lg transition-colors"
+            disabled={saving}
+            className="flex items-center gap-2 px-4 py-2 text-gray-400 hover:text-white hover:bg-gray-800 rounded-lg transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
           >
             <RotateCcw className="w-4 h-4" />
             Reset to Defaults
@@ -517,17 +611,17 @@ const SystemSettings = () => {
           
           <button
             onClick={handleSave}
-            disabled={!hasChanges}
+            disabled={!hasChanges || saving}
             className={`
               flex items-center gap-2 px-6 py-2 rounded-lg font-medium transition-all
-              ${hasChanges
+              ${hasChanges && !saving
                 ? 'bg-blue-600 hover:bg-blue-700 text-white'
                 : 'bg-gray-800 text-gray-500 cursor-not-allowed'
               }
             `}
           >
             <Save className="w-4 h-4" />
-            Save Changes
+            {saving ? 'Saving...' : 'Save Changes'}
           </button>
         </div>
       </div>

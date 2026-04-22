@@ -138,4 +138,22 @@ export const checksAPI = {
     api.get(`/checks/${id}/stats`, { params }),
 };
 
+// Analytics
+export const analyticsAPI = {
+  overview: (params = {}) =>
+    api.get('/analytics/overview', { params }),
+};
+
+// System Settings
+export const settingsAPI = {
+  getSystem: () =>
+    api.get('/settings/system'),
+  updateSystem: (data) =>
+    api.post('/settings/system', data),
+  resetSystem: () =>
+    api.post('/settings/system/reset'),
+  getDefaults: () =>
+    api.get('/settings/system/defaults'),
+};
+
 export default api;
