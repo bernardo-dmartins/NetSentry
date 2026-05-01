@@ -26,7 +26,7 @@ const alertRoutes = require("./routes/alerts");
 const checkRoutes = require("./routes/checks");
 const settingRoutes = require("./routes/settings");
 const analyticsRoutes = require("./routes/analytics");
-const notificationsRoutes = require ("./routes/notifications")
+const notificationsRoutes = require("./routes/notifications");
 const { rateLimitMiddleware } = require("./middleware/authJWT");
 
 const { notFoundHandler, errorHandler } = require("./middleware/errorHandler");
@@ -151,24 +151,57 @@ class Application {
       return;
     }
 
-    this.app.use(
-      "/api/",
-      rateLimitMiddleware({
-        windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS, 10) || 900000,
-        max: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS, 10) || 100,
-        message: "Too many requests from this IP. Please try again later.",
-        keyGenerator: (req) => req.ip || "unknown",
-      }),
-    );
+    const generalWindowMs =
+      parseInt(process.env.RATE_LIMIT_GENERAL_WINDOW_MS, 10) ||
+      parseInt(process.env.RATE_LIMIT_WINDOW_MS, 10) ||
+      60000;
+    const generalMax =
+      parseInt(process.env.RATE_LIMIT_GENERAL_MAX_REQUESTS, 10) || 600;
+
+    const pollingWindowMs =
+      parseInt(process.env.RATE_LIMIT_POLLING_WINDOW_MS, 10) || 60000;
+    const pollingMax =
+      parseInt(process.env.RATE_LIMIT_POLLING_MAX_REQUESTS, 10) || 1800;
+
+    const generalLimiter = rateLimitMiddleware({
+      windowMs: generalWindowMs,
+      max: generalMax,
+      message: "Too many API requests. Please try again in a few moments.",
+      keyGenerator: (req) => req.ip || "unknown",
+      enforceInDevelopment: true,
+    });
+
+    const pollingLimiter = rateLimitMiddleware({
+      windowMs: pollingWindowMs,
+      max: pollingMax,
+      message: "Too many dashboard refresh requests. Please slow down.",
+      keyGenerator: (req) => `${req.ip || "unknown"}:${req.path}`,
+      enforceInDevelopment: true,
+    });
+
+    // Polling-heavy endpoints get a higher limit to avoid blocking dashboard usage.
+    this.app.use("/api/analytics", pollingLimiter);
+    this.app.use("/api/notifications", pollingLimiter);
+    this.app.use("/api/devices/stats", pollingLimiter);
+
+    // Auth already has strict route-level limits. Avoid stacking global limits there.
+    this.app.use("/api/", (req, res, next) => {
+      if (req.path.startsWith("/auth")) {
+        return next();
+      }
+
+      return generalLimiter(req, res, next);
+    });
   }
 
   setupRequestLogging() {
+    const NOISY_ROUTES = ["/unread-count", "/system", "/recent", "/health"];
+
     this.app.use((req, res, next) => {
       const start = Date.now();
 
       res.on("finish", () => {
         const duration = Date.now() - start;
-
         const level =
           res.statusCode >= 500
             ? "error"
@@ -176,13 +209,27 @@ class Application {
               ? "warn"
               : "info";
 
+        const isPolling = NOISY_ROUTES.some((r) => req.path.includes(r));
+
+        // Arquivo sempre recebe tudo com detalhes
         logger[level](
           `${req.method} ${req.path} ${res.statusCode} - ${duration}ms`,
-          {
-            ip: req.ip,
-            userAgent: req.get("user-agent"),
-          },
+          { ip: req.ip, userAgent: req.get("user-agent") },
         );
+
+        // Terminal: rotas de polling só aparecem se forem erro
+        if (!isPolling || res.statusCode >= 400) {
+          console.log(
+            `\x1b[90m${new Date().toLocaleTimeString("pt-BR")}\x1b[0m`,
+            level === "error"
+              ? "\x1b[31m"
+              : level === "warn"
+                ? "\x1b[33m"
+                : "\x1b[36m",
+            `${req.method} ${req.path} ${res.statusCode} - ${duration}ms`,
+            "\x1b[0m",
+          );
+        }
       });
 
       next();
@@ -207,7 +254,7 @@ class Application {
     this.app.use("/api/devices", deviceRoutes);
     this.app.use("/api/alerts", alertRoutes);
     this.app.use("/api/checks", checkRoutes);
-    this.app.use('/api/settings', settingRoutes);
+    this.app.use("/api/settings", settingRoutes);
     this.app.use("/api/analytics", analyticsRoutes);
     this.app.use("/api/notifications", notificationsRoutes);
 
