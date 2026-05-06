@@ -49,7 +49,34 @@ class DeviceController {
 
       const devices = await Device.findAll({
         where,
+        include: [
+          {
+            model: DeviceCheck,
+            as: 'checks',
+            attributes: ['id', 'name', 'type', 'lastStatus', 'lastCheckedAt', 'isActive']
+          }
+        ],
         order: [['name', 'ASC']]
+      });
+
+      const devicesWithChecksSummary = devices.map((device) => {
+        const plainDevice = device.toJSON();
+        const checks = Array.isArray(plainDevice.checks) ? plainDevice.checks : [];
+        const activeChecks = checks.filter((check) => check.isActive !== false);
+
+        const summary = {
+          total: checks.length,
+          active: activeChecks.length,
+          online: activeChecks.filter((c) => c.lastStatus === 'online').length,
+          offline: activeChecks.filter((c) => c.lastStatus === 'offline').length,
+          warning: activeChecks.filter((c) => c.lastStatus === 'warning').length,
+          unknown: activeChecks.filter((c) => c.lastStatus === 'unknown').length
+        };
+
+        return {
+          ...plainDevice,
+          checksSummary: summary
+        };
       });
 
       const stats = {
@@ -61,7 +88,7 @@ class DeviceController {
 
       const responseData = {
         success: true,
-        data: devices,
+        data: devicesWithChecksSummary,
         stats
       };
 
