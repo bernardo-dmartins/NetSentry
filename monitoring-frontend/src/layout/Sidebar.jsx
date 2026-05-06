@@ -23,7 +23,6 @@ const Sidebar = ({ currentPage, onNavigate, isCollapsed, onToggleCollapse, user 
       label: 'Analytics',
       icon: BarChart3,
       path: '/analytics',
-      badge: 'New',
     },
     {
       id: 'alerts',
