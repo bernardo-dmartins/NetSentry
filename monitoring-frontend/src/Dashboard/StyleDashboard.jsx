@@ -274,6 +274,31 @@ export default function StyleDashboard() {
     return matchesSearch && matchesStatus;
   });
 
+  useEffect(() => {
+    if (filteredDevices.length === 0) {
+      setSelectedDevice(null);
+      return;
+    }
+
+    if (!selectedDevice) {
+      setSelectedDevice(filteredDevices[0]);
+      return;
+    }
+
+    const updatedSelection = filteredDevices.find(
+      (device) => device.id === selectedDevice.id,
+    );
+
+    if (!updatedSelection) {
+      setSelectedDevice(filteredDevices[0]);
+      return;
+    }
+
+    if (updatedSelection !== selectedDevice) {
+      setSelectedDevice(updatedSelection);
+    }
+  }, [filteredDevices, selectedDevice]);
+
   if (loading) {
     return (
       <div className="p-8 text-center">

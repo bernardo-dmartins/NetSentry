@@ -53,6 +53,42 @@ export default function DevicesTable({ devices, setSelectedDevice, onEditDevice,
     return 'text-green-400';
   };
 
+  const getChecksSummaryLabel = (device) => {
+    const summary = device?.checksSummary;
+    if (!summary || summary.total === 0) {
+      return {
+        text: 'No checks',
+        cls: 'text-gray-400'
+      };
+    }
+
+    if (summary.offline > 0) {
+      return {
+        text: `${summary.offline} offline`,
+        cls: 'text-red-400'
+      };
+    }
+
+    if (summary.warning > 0) {
+      return {
+        text: `${summary.warning} warning`,
+        cls: 'text-yellow-400'
+      };
+    }
+
+    if (summary.online > 0) {
+      return {
+        text: `${summary.online} online`,
+        cls: 'text-green-400'
+      };
+    }
+
+    return {
+      text: `${summary.unknown} unknown`,
+      cls: 'text-gray-400'
+    };
+  };
+
   const handleDeleteClick = (device, e) => {
     e.stopPropagation();
     setConfirmDelete({ id: device.id, name: device.name });
@@ -131,6 +167,7 @@ export default function DevicesTable({ devices, setSelectedDevice, onEditDevice,
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Host</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Status</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Response</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Checks</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Last Check</th>
                 <th className="px-6 py-3 text-center text-xs font-medium text-gray-400 uppercase tracking-wider">Actions</th>
               </tr>
@@ -138,7 +175,7 @@ export default function DevicesTable({ devices, setSelectedDevice, onEditDevice,
             <tbody className="divide-y divide-gray-700">
               {devices.length === 0 ? (
                 <tr>
-                  <td colSpan="5" className="px-6 py-12 text-center">
+                  <td colSpan="6" className="px-6 py-12 text-center">
                     <Monitor className="w-12 h-12 text-gray-600 mx-auto mb-3" />
                     <p className="text-gray-400">No hosts registered</p>
                     <p className="text-gray-500 text-sm mt-1">Click "Add Host" to get started</p>
@@ -170,6 +207,22 @@ export default function DevicesTable({ devices, setSelectedDevice, onEditDevice,
                       <div className={`text-sm font-medium ${getResponseColor(device.responseTime || 0)}`}>
                         {device.status === 'online' && device.responseTime ? `${Math.round(device.responseTime)}ms` : 'N/A'}
                       </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      {(() => {
+                        const summary = device?.checksSummary;
+                        const label = getChecksSummaryLabel(device);
+                        return (
+                          <div className="text-sm">
+                            <div className={`font-medium ${label.cls}`}>{label.text}</div>
+                            <div className="text-xs text-gray-400">
+                              {summary && summary.total > 0
+                                ? `${summary.active}/${summary.total} active`
+                                : '0 configured'}
+                            </div>
+                          </div>
+                        );
+                      })()}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">
                       {device.lastCheck ? new Date(device.lastCheck).toLocaleString('en-US') : 'N/A'}
