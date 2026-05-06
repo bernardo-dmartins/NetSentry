@@ -3,7 +3,8 @@ const Alert = require("./Alert");
 const User = require("./User");
 const DeviceCheck = require("./DeviceCheck");
 const CheckResult = require("./CheckResult");
-const SystemSettings = require("./SystemSettings"); 
+const SystemSettings = require("./SystemSettings");
+const Notifications = require("./Notifications"); 
 
 Alert.belongsTo(Device, {
   foreignKey: "deviceId",
@@ -39,6 +40,7 @@ const models = {
   DeviceCheck,
   CheckResult,
   SystemSettings,
+  Notifications, 
 };
 
 Object.keys(models).forEach((modelName) => {
@@ -53,6 +55,6 @@ module.exports = {
   User,
   DeviceCheck,
   CheckResult,
-  SystemSettings, 
-  Notification
+  SystemSettings,
+  Notifications, 
 };

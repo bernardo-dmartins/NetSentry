@@ -1,8 +1,8 @@
 const express = require('express');
 const router = express.Router();
-const { authMiddleware } = require('../middleware/auth');
+const { authMiddleware } = require('../middleware/authJWT');
 const { asyncHandler } = require('../middleware/errorHandler');
-const Notification = require('../models/Notification');
+const Notification = require('../models/Notifications');
 const { Op } = require('sequelize');
 const logger = require('../utils/logger');
 
