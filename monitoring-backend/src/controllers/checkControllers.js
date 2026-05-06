@@ -16,7 +16,7 @@ const CHECK_TYPES = [
   "dns",
   "keyword_match",
 ];
-const DNS_RECORD_TYPES = ["A", "AAAA", "CNAME", "MX", "TXT", "NS"];
+const DNS_RECORD_TYPES = ["A", "AAAA", "CNAME", "MX", "TXT", "NS"]; 
 
 const validateCheckSpecifics = (
   type,
@@ -39,7 +39,7 @@ const validateCheckSpecifics = (
     if (config.recordType && !DNS_RECORD_TYPES.includes(config.recordType)) {
       errors.push({
         field: "config.recordType",
-        message: `DNS recordType must be one of: ${DNS_RECORD_TYPES.join(", ")}`,
+        message: `DNS recordType must be one of: ${DNS_RECORD_TYPES.join(", ")}`, 
       });
     }
 
@@ -126,6 +126,15 @@ const validateCheckSpecifics = (
   return errors;
 };
 
+// Helper function to validate object size
+const validateObjectSize = (obj, maxSize = 10000) => {
+  try {
+    return JSON.stringify(obj).length <= maxSize;
+  } catch {
+    return false;
+  }
+};
+
 class CheckController {
   static validateDeviceId = [param("id").isInt({ min: 1 }).toInt()];
   static validateId = [param("id").isInt({ min: 1 }).toInt()];
@@ -143,8 +152,24 @@ class CheckController {
     body("timeoutMs").optional().isInt({ min: 1000, max: 120000 }).toInt(),
     body("warningThreshold").optional().isInt({ min: 0 }).toInt(),
     body("criticalThreshold").optional().isInt({ min: 0 }).toInt(),
-    body("config").optional().isObject(),
-    body("expected").optional().isObject(),
+    body("config")
+      .optional()
+      .isObject()
+      .custom((value) => {
+        if (!validateObjectSize(value)) {
+          throw new Error("config object is too large (max 10KB)");
+        }
+        return true;
+      }),
+    body("expected")
+      .optional()
+      .isObject()
+      .custom((value) => {
+        if (!validateObjectSize(value)) {
+          throw new Error("expected object is too large (max 10KB)");
+        }
+        return true;
+      }),
   ];
 
   static validateUpdate = [
@@ -160,8 +185,24 @@ class CheckController {
     body("timeoutMs").optional().isInt({ min: 1000, max: 120000 }).toInt(),
     body("warningThreshold").optional().isInt({ min: 0 }).toInt(),
     body("criticalThreshold").optional().isInt({ min: 0 }).toInt(),
-    body("config").optional().isObject(),
-    body("expected").optional().isObject(),
+    body("config")
+      .optional()
+      .isObject()
+      .custom((value) => {
+        if (!validateObjectSize(value)) {
+          throw new Error("config object is too large (max 10KB)");
+        }
+        return true;
+      }),
+    body("expected")
+      .optional()
+      .isObject()
+      .custom((value) => {
+        if (!validateObjectSize(value)) {
+          throw new Error("expected object is too large (max 10KB)");
+        }
+        return true;
+      }),
   ];
 
   static validateRun = [param("id").isInt({ min: 1 }).toInt()];
@@ -180,6 +221,18 @@ class CheckController {
     query("days").optional().isInt({ min: 1, max: 3650 }).toInt(),
   ];
 
+  // Helper method to verify device ownership
+  static async verifyDeviceOwnership(deviceId, userId) {
+    const device = await Device.findByPk(deviceId);
+    if (!device) {
+      return { authorized: false, device: null, message: "Device not found" };
+    }
+    if (device.userId !== userId) {
+      return { authorized: false, device: null, message: "Unauthorized: Device does not belong to this user" };
+    }
+    return { authorized: true, device };
+  }
+
   static async listByDevice(req, res) {
     try {
       const errors = validationResult(req);
@@ -188,10 +241,15 @@ class CheckController {
       }
 
       const deviceId = req.params.id;
+      const userId = req.user?.id;
 
-      const device = await Device.findByPk(deviceId);
-      if (!device) {
-        return res.status(404).json({ success: false, message: "Device not found" });
+      // Verify ownership
+      const ownership = await CheckController.verifyDeviceOwnership(deviceId, userId);
+      if (!ownership.authorized) {
+        return res.status(ownership.device ? 403 : 404).json({ 
+          success: false, 
+          message: ownership.message 
+        });
       }
 
       const checks = await DeviceCheck.findAll({
@@ -214,21 +272,27 @@ class CheckController {
       }
 
       const deviceId = req.params.id;
-      const device = await Device.findByPk(deviceId);
-      if (!device) {
-        return res.status(404).json({ success: false, message: "Device not found" });
+      const userId = req.user?.id;
+
+      // Verify ownership
+      const ownership = await CheckController.verifyDeviceOwnership(deviceId, userId);
+      if (!ownership.authorized) {
+        return res.status(ownership.device ? 403 : 404).json({ 
+          success: false, 
+          message: ownership.message 
+        });
       }
 
       const payload = {
         deviceId,
         name: req.body.name || `${req.body.type} check`,
         type: req.body.type,
-        isActive: req.body.isActive ?? true,
-        isDefault: req.body.isDefault ?? false,
-        intervalSeconds: req.body.intervalSeconds ?? 30,
-        timeoutMs: req.body.timeoutMs ?? 5000,
-        warningThreshold: req.body.warningThreshold ?? null,
-        criticalThreshold: req.body.criticalThreshold ?? null,
+        isActive: req.body.isActive !== undefined ? req.body.isActive : true,
+        isDefault: req.body.isDefault !== undefined ? req.body.isDefault : false,
+        intervalSeconds: req.body.intervalSeconds !== undefined ? req.body.intervalSeconds : 30,
+        timeoutMs: req.body.timeoutMs !== undefined ? req.body.timeoutMs : 5000,
+        warningThreshold: req.body.warningThreshold !== undefined ? req.body.warningThreshold : null,
+        criticalThreshold: req.body.criticalThreshold !== undefined ? req.body.criticalThreshold : null,
         config: req.body.config || {},
         expected: req.body.expected || {},
       };
@@ -246,14 +310,16 @@ class CheckController {
         return res.status(400).json({ success: false, errors: validationErrors });
       }
 
-      if (payload.isDefault) {
-        await DeviceCheck.update(
-          { isDefault: false },
-          { where: { deviceId, isDefault: true } }
-        );
-      }
-
-      const check = await DeviceCheck.create(payload);
+      // Use transaction to prevent race condition on default check assignment
+      const check = await sequelize.transaction(async (t) => {
+        if (payload.isDefault) {
+          await DeviceCheck.update(
+            { isDefault: false },
+            { where: { deviceId, isDefault: true }, transaction: t }
+          );
+        }
+        return await DeviceCheck.create(payload, { transaction: t });
+      });
 
       res.status(201).json({
         success: true,
@@ -274,10 +340,18 @@ class CheckController {
       }
 
       const { id } = req.params;
+      const userId = req.user?.id;
+
       const check = await DeviceCheck.findByPk(id);
 
       if (!check) {
         return res.status(404).json({ success: false, message: "Check not found" });
+      }
+
+      // Verify ownership via device association
+      const device = await Device.findByPk(check.deviceId);
+      if (!device || device.userId !== userId) {
+        return res.status(403).json({ success: false, message: "Unauthorized: Check does not belong to this user" });
       }
 
       res.json({ success: true, data: check });
@@ -295,23 +369,31 @@ class CheckController {
       }
 
       const { id } = req.params;
+      const userId = req.user?.id;
+
       const check = await DeviceCheck.findByPk(id);
 
       if (!check) {
         return res.status(404).json({ success: false, message: "Check not found" });
       }
 
+      // Verify ownership via device association
+      const device = await Device.findByPk(check.deviceId);
+      if (!device || device.userId !== userId) {
+        return res.status(403).json({ success: false, message: "Unauthorized: Check does not belong to this user" });
+      }
+
       const updates = {
-        name: req.body.name ?? check.name,
-        type: req.body.type ?? check.type,
-        isActive: req.body.isActive ?? check.isActive,
-        isDefault: req.body.isDefault ?? check.isDefault,
-        intervalSeconds: req.body.intervalSeconds ?? check.intervalSeconds,
-        timeoutMs: req.body.timeoutMs ?? check.timeoutMs,
-        warningThreshold: req.body.warningThreshold ?? check.warningThreshold,
-        criticalThreshold: req.body.criticalThreshold ?? check.criticalThreshold,
-        config: req.body.config ?? check.config,
-        expected: req.body.expected ?? check.expected,
+        name: req.body.name !== undefined ? req.body.name : check.name,
+        type: req.body.type !== undefined ? req.body.type : check.type,
+        isActive: req.body.isActive !== undefined ? req.body.isActive : check.isActive,
+        isDefault: req.body.isDefault !== undefined ? req.body.isDefault : check.isDefault,
+        intervalSeconds: req.body.intervalSeconds !== undefined ? req.body.intervalSeconds : check.intervalSeconds,
+        timeoutMs: req.body.timeoutMs !== undefined ? req.body.timeoutMs : check.timeoutMs,
+        warningThreshold: req.body.warningThreshold !== undefined ? req.body.warningThreshold : check.warningThreshold,
+        criticalThreshold: req.body.criticalThreshold !== undefined ? req.body.criticalThreshold : check.criticalThreshold,
+        config: req.body.config !== undefined ? req.body.config : check.config,
+        expected: req.body.expected !== undefined ? req.body.expected : check.expected,
       };
 
       const validationErrors = validateCheckSpecifics(
@@ -327,14 +409,16 @@ class CheckController {
         return res.status(400).json({ success: false, errors: validationErrors });
       }
 
-      if (updates.isDefault && !check.isDefault) {
-        await DeviceCheck.update(
-          { isDefault: false },
-          { where: { deviceId: check.deviceId, isDefault: true } }
-        );
-      }
-
-      await check.update(updates);
+      // Use transaction to prevent race condition on default check assignment
+      await sequelize.transaction(async (t) => {
+        if (updates.isDefault && !check.isDefault) {
+          await DeviceCheck.update(
+            { isDefault: false },
+            { where: { deviceId: check.deviceId, isDefault: true }, transaction: t }
+          );
+        }
+        await check.update(updates, { transaction: t });
+      });
 
       res.json({
         success: true,
@@ -355,10 +439,18 @@ class CheckController {
       }
 
       const { id } = req.params;
+      const userId = req.user?.id;
+
       const check = await DeviceCheck.findByPk(id);
 
       if (!check) {
         return res.status(404).json({ success: false, message: "Check not found" });
+      }
+
+      // Verify ownership via device association
+      const device = await Device.findByPk(check.deviceId);
+      if (!device || device.userId !== userId) {
+        return res.status(403).json({ success: false, message: "Unauthorized: Check does not belong to this user" });
       }
 
       await check.destroy();
@@ -378,13 +470,35 @@ class CheckController {
       }
 
       const { id } = req.params;
-      const result = await monitoringService.checkSingleCheck(id);
+      const userId = req.user?.id;
 
-      res.json({
-        success: true,
-        message: "Check executed",
-        data: result,
-      });
+      // Verify check exists and user has access
+      const check = await DeviceCheck.findByPk(id);
+      if (!check) {
+        return res.status(404).json({ success: false, message: "Check not found" });
+      }
+
+      // Verify ownership via device association
+      const device = await Device.findByPk(check.deviceId);
+      if (!device || device.userId !== userId) {
+        return res.status(403).json({ success: false, message: "Unauthorized: Check does not belong to this user" });
+      }
+
+      try {
+        const result = await monitoringService.checkSingleCheck(id);
+        res.json({
+          success: true,
+          message: "Check executed",
+          data: result,
+        });
+      } catch (serviceError) {
+        logger.error("Monitoring service error while running check:", serviceError);
+        res.status(500).json({ 
+          success: false, 
+          message: "Error executing check", 
+          details: serviceError.message 
+        });
+      }
     } catch (error) {
       logger.error("Error running check:", error);
       res.status(500).json({ success: false, message: "Error running check" });
@@ -399,11 +513,18 @@ class CheckController {
       }
 
       const { id } = req.params;
+      const userId = req.user?.id;
       const limit = req.query.limit || 50;
 
       const check = await DeviceCheck.findByPk(id);
       if (!check) {
         return res.status(404).json({ success: false, message: "Check not found" });
+      }
+
+      // Verify ownership via device association
+      const device = await Device.findByPk(check.deviceId);
+      if (!device || device.userId !== userId) {
+        return res.status(403).json({ success: false, message: "Unauthorized: Check does not belong to this user" });
       }
 
       const results = await CheckResult.findAll({
@@ -427,12 +548,19 @@ class CheckController {
       }
 
       const { id } = req.params;
+      const userId = req.user?.id;
       const limit = req.query.limit || 100;
       const days = req.query.days;
 
       const check = await DeviceCheck.findByPk(id);
       if (!check) {
         return res.status(404).json({ success: false, message: "Check not found" });
+      }
+
+      // Verify ownership via device association
+      const device = await Device.findByPk(check.deviceId);
+      if (!device || device.userId !== userId) {
+        return res.status(403).json({ success: false, message: "Unauthorized: Check does not belong to this user" });
       }
 
       const where = { deviceCheckId: id };
@@ -463,11 +591,18 @@ class CheckController {
       }
 
       const { id } = req.params;
+      const userId = req.user?.id;
       const days = req.query.days || 7;
 
       const check = await DeviceCheck.findByPk(id);
       if (!check) {
         return res.status(404).json({ success: false, message: "Check not found" });
+      }
+
+      // Verify ownership via device association
+      const device = await Device.findByPk(check.deviceId);
+      if (!device || device.userId !== userId) {
+        return res.status(403).json({ success: false, message: "Unauthorized: Check does not belong to this user" });
       }
 
       const cutoff = new Date();
