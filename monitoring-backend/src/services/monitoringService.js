@@ -7,6 +7,7 @@ const Device = require("../models/Device");
 const DeviceCheck = require("../models/DeviceCheck");
 const CheckResult = require("../models/CheckResult");
 const Alert = require("../models/Alert");
+const User = require("../models/User");
 const logger = require("../utils/logger");
 const emailService = require("./emailService");
 const Notification = require('../models/Notifications')
@@ -609,12 +610,14 @@ class MonitoringService {
         "disaster",
         `${check.name} is unreachable`
       );
+      await this.createDeviceOfflineNotification(device, check);
     } else if (newStatus === "warning" && oldStatus !== "warning") {
       await this.createAlert(
         device,
         "warning",
         `${check.name} high response time: ${result.responseTime}ms`
       );
+      await this.createHighResponseTimeNotification(device, check, result.responseTime);
     } else if (
       newStatus === "online" &&
       (oldStatus === "offline" || oldStatus === "warning")
@@ -624,6 +627,7 @@ class MonitoringService {
         "information",
         `${check.name} is back online`
       );
+      await this.createDeviceRecoveryNotification(device, check);
 
       await this.resolveDeviceAlerts(device.id);
     }
@@ -692,17 +696,20 @@ class MonitoringService {
 
       if (oldStatus === "online" && status === "offline") {
         await this.createAlert(device, "disaster", `Device is unreachable`);
+        await this.createDeviceOfflineNotification(device);
       } else if (status === "warning" && oldStatus !== "warning") {
         await this.createAlert(
           device,
           "warning",
           `High response time: ${result.responseTime}ms`
         );
+        await this.createHighResponseTimeNotification(device, null, result.responseTime);
       } else if (
         status === "online" &&
         (oldStatus === "offline" || oldStatus === "warning")
       ) {
         await this.createAlert(device, "information", `Device is back online`);
+        await this.createDeviceRecoveryNotification(device);
         await this.resolveDeviceAlerts(device.id);
       }
 
@@ -878,40 +885,77 @@ class MonitoringService {
       throw error;
     }
   }
-}
 
-  async function handleDeviceOffline(device) {
-    const users = await User.findAll({ where: { role: 'admin'} });
+  async createNotificationForUsers(notificationData) {
+    try {
+      const websocketService = require("./websocketService");
+      const users = await User.findAll({ where: { role: "admin" } });
 
-    for (const user of users) {
-      await Notification.createDeviceOffline(device. user.id);
+      for (const user of users) {
+        const notification = await Notification.create({
+          userId: user.id,
+          ...notificationData,
+        });
 
-      websocketService.sendToUser(user.id, 'new-notification', {
-        id: notification.id,
-        type: 'alert',
-        severity: 'critical',
-        title: 'Device offline',
-        message: `${device.name} is offline`,
-        timestamp: new Date().toISOString(),
-        read: false
-      })
+        websocketService.sendToUser(user.id, "new-notification", {
+          id: notification.id,
+          type: notification.type,
+          severity: notification.severity,
+          title: notification.title,
+          message: notification.message,
+          timestamp: notification.createdAt,
+          read: notification.read,
+          deviceName: notification.deviceName,
+        });
+      }
+    } catch (error) {
+      logger.error("Error creating notification:", error);
     }
   }
 
-  async function handleDeviceRecovery(device) {
-  const users = await User.findAll({ where: { role: 'admin' } });
-  
-  for (const user of users) {
-    await Notification.createDeviceRecovery(device, user.id);
+  async createDeviceOfflineNotification(device, check = null) {
+    await this.createNotificationForUsers({
+      deviceId: device.id,
+      checkId: check?.id || null,
+      type: "alert",
+      severity: "critical",
+      title: check ? `${check.name} is unreachable` : `${device.name} is offline`,
+      message: check
+        ? `${check.name} on ${device.name} is unreachable`
+        : `${device.name} is offline`,
+      deviceName: device.name,
+    });
   }
-}
 
-// Response time alto
-async function handleHighResponseTime(device, responseTime) {
-  const users = await User.findAll({ where: { role: 'admin' } });
-  
-  for (const user of users) {
-    await Notification.createHighResponseTime(device, responseTime, user.id);
+  async createDeviceRecoveryNotification(device, check = null) {
+    await this.createNotificationForUsers({
+      deviceId: device.id,
+      checkId: check?.id || null,
+      type: "recovery",
+      severity: "info",
+      title: check ? `${check.name} is back online` : `${device.name} is back online`,
+      message: check
+        ? `${check.name} on ${device.name} is back online`
+        : `${device.name} is back online`,
+      deviceName: device.name,
+    });
+  }
+
+  async createHighResponseTimeNotification(device, check = null, responseTime) {
+    await this.createNotificationForUsers({
+      deviceId: device.id,
+      checkId: check?.id || null,
+      type: "warning",
+      severity: "warning",
+      title: check
+        ? `${check.name} high response time`
+        : `${device.name} high response time`,
+      message: check
+        ? `${check.name} on ${device.name} response time is ${responseTime}ms`
+        : `${device.name} response time is ${responseTime}ms`,
+      deviceName: device.name,
+      metadata: { responseTime },
+    });
   }
 }
 

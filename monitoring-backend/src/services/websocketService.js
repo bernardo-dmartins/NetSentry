@@ -79,6 +79,9 @@ class WebSocketService {
       role: socket.role
     });
 
+    // Adicionar à sala do usuário para notificações direcionadas
+    socket.join(`user:${socket.userId}`);
+
     // Configurar listeners de eventos
     this.setupEventListeners(socket);
 
@@ -425,15 +428,6 @@ class WebSocketService {
     // Enviar para todas as conexões do usuário
     this.io.to(`user:${userId}`).emit(event, data);
   }
-
-  handleConnection(socket) {
-    const userId = socket.handshake.auth.userId;
-    
-    // Adicionar usuário a uma sala específica
-    socket.join(`user:${userId}`);
-    
-  }
-  
 
   /**
    * Enviar atualização de status de device para todos
