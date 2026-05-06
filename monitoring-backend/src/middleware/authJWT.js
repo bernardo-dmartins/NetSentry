@@ -124,11 +124,19 @@ const rateLimitMiddleware = (options = {}) => {
     max = 100,
     message = "Too many requests. Please try again later.",
     keyGenerator = (req) => req.ip || "unknown",
+    enforceInDevelopment = false,
   } = options;
 
   const skipRateLimit = (req) => {
     if (process.env.NODE_ENV === "test") return true;
     if (process.env.DISABLE_RATE_LIMIT === "true") return true;
+    if (
+      process.env.NODE_ENV === "development" &&
+      process.env.ENABLE_RATE_LIMIT_IN_DEV !== "true" &&
+      !enforceInDevelopment
+    ) {
+      return true;
+    }
 
     const userAgent = req.get("user-agent") || "";
     if (userAgent.toLowerCase().includes("cypress")) return true;
@@ -169,7 +177,7 @@ const rateLimitMiddleware = (options = {}) => {
           path: req.originalUrl,
         });
 
-        throw new RateLimitError(retryAfter);
+        throw new RateLimitError(retryAfter, message);
       }
 
       next();

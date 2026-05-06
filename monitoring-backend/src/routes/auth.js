@@ -87,7 +87,8 @@ router.post('/register',
     windowMs: 900000, // 15 minutes
     max: 3, // max 3 registrations per 15 minutes per IP
     message: 'Too many registration attempts. Please wait 15 minutes.',
-    keyGenerator: (req) => req.ip
+    keyGenerator: (req) => req.ip,
+    enforceInDevelopment: true,
   }),
   AuthController.validateRegister,
   wrap(AuthController.register)
@@ -147,7 +148,8 @@ router.post('/login',
     windowMs: 60000, // 1 minute
     max: isTestEnv ? 1000 : 5, // increase limit during tests to avoid blocking
     message: 'Too many login attempts. Please wait 1 minute.',
-    keyGenerator: (req) => `${req.ip}:${req.body.username || 'unknown'}`
+    keyGenerator: (req) => `${req.ip}:${req.body.username || 'unknown'}`,
+    enforceInDevelopment: true,
 
   }),
   AuthController.validateLogin,
@@ -236,7 +238,8 @@ router.put('/profile',
     windowMs: 60000, // 1 minute
     max: 10, // max 10 updates per minute
     message: 'Too many update attempts. Please wait 1 minute.',
-    keyGenerator: (req) => `update:${req.user.id}`
+    keyGenerator: (req) => `update:${req.user.id}`,
+    enforceInDevelopment: true,
   }),
   wrap(AuthController.updateProfile)
 );

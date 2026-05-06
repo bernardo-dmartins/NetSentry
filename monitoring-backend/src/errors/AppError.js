@@ -69,8 +69,8 @@ class ConflictError extends AppError {
 }
 
 class RateLimitError extends AppError {
-    constructor(retryAfter = 60) {
-        super('Too many requests. Please try again later.', 429, 'RATE_LIMIT_EXCEEDED');
+    constructor(retryAfter = 60, message = 'Too many requests. Please try again later.') {
+        super(message, 429, 'RATE_LIMIT_EXCEEDED');
         this.retryAfter = retryAfter;
     }
 }
