@@ -18,7 +18,6 @@ const Layout = ({
   const [recentAlerts, setRecentAlerts] = useState([]);
 
   const [unreadNotificationsCount, setUnreadNotificationsCount] = useState(0);
-  const [recentNotifications, setRecentNotifications] = useState([]);
 
   const [notificationsSettings, setNotificationsSettings] = useState({
     quietHours: false,
@@ -85,7 +84,6 @@ const Layout = ({
         return;
       }
 
-      setRecentNotifications((prev) => [notification, ...prev].slice(0, 20));
       setUnreadNotificationsCount((prev) => prev + 1);
 
       // Notificação do navegador (se permitido)

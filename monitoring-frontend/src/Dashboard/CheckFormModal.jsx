@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { X, Save, AlertCircle, CheckCircle } from "lucide-react";
+import { X, AlertCircle, CheckCircle } from "lucide-react";
 import { checksAPI } from "../frontServices/api";
 
 const CHECK_TYPES = [

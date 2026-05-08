@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect } from "react";
+import React, { useMemo, useState, useEffect, useCallback } from "react";
 import { devicesAPI, alertsAPI, settingsAPI } from "../../src/frontServices/api";
 import websocketService from "../../src/frontServices/websocket";
 import StatsCards from "./StatsCards";
@@ -33,7 +33,7 @@ export default function StyleDashboard() {
   });
   const useMocks = process.env.REACT_APP_USE_MOCKS === "true";
 
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     try {
       console.log("Loading data...");
       setError(null);
@@ -107,7 +107,7 @@ export default function StyleDashboard() {
 
       setLoading(false);
     }
-  };
+  }, [statusFilter, useMocks]);
 
   const handleAddHost = () => {
     setEditingDevice(null);
@@ -129,7 +129,32 @@ export default function StyleDashboard() {
     await loadData();
   };
 
-  const setupWebSocket = () => {
+  const isQuietHours = useMemo(() => {
+    if (!notificationsSettings.quietHours) return false;
+    const [startH, startM] = (notificationsSettings.quietStart || "22:00")
+      .split(":")
+      .map(Number);
+    const [endH, endM] = (notificationsSettings.quietEnd || "08:00")
+      .split(":")
+      .map(Number);
+
+    if ([startH, startM, endH, endM].some((n) => Number.isNaN(n))) {
+      return false;
+    }
+
+    const now = new Date();
+    const nowMinutes = now.getHours() * 60 + now.getMinutes();
+    const startMinutes = startH * 60 + startM;
+    const endMinutes = endH * 60 + endM;
+
+    if (startMinutes <= endMinutes) {
+      return nowMinutes >= startMinutes && nowMinutes <= endMinutes;
+    }
+
+    return nowMinutes >= startMinutes || nowMinutes <= endMinutes;
+  }, [notificationsSettings]);
+
+  const setupWebSocket = useCallback(() => {
     const token = localStorage.getItem("token");
 
     if (!token) {
@@ -171,32 +196,7 @@ export default function StyleDashboard() {
     } catch (err) {
       console.error("Error configuring WebSocket:", err);
     }
-  };
-
-  const isQuietHours = useMemo(() => {
-    if (!notificationsSettings.quietHours) return false;
-    const [startH, startM] = (notificationsSettings.quietStart || "22:00")
-      .split(":")
-      .map(Number);
-    const [endH, endM] = (notificationsSettings.quietEnd || "08:00")
-      .split(":")
-      .map(Number);
-
-    if ([startH, startM, endH, endM].some((n) => Number.isNaN(n))) {
-      return false;
-    }
-
-    const now = new Date();
-    const nowMinutes = now.getHours() * 60 + now.getMinutes();
-    const startMinutes = startH * 60 + startM;
-    const endMinutes = endH * 60 + endM;
-
-    if (startMinutes <= endMinutes) {
-      return nowMinutes >= startMinutes && nowMinutes <= endMinutes;
-    }
-
-    return nowMinutes >= startMinutes || nowMinutes <= endMinutes;
-  }, [notificationsSettings]);
+  }, [isQuietHours]);
 
   useEffect(() => {
     setupWebSocket();
@@ -204,7 +204,7 @@ export default function StyleDashboard() {
     return () => {
       websocketService.disconnect();
     };
-  }, [isQuietHours]);
+  }, [setupWebSocket]);
 
   useEffect(() => {
     const loadSettings = async () => {
@@ -263,7 +263,7 @@ export default function StyleDashboard() {
     const intervalMs = Math.max(5, refreshRate) * 1000;
     const intervalId = setInterval(loadData, intervalMs);
     return () => clearInterval(intervalId);
-  }, [refreshRate, statusFilter]);
+  }, [refreshRate, loadData]);
 
   const filteredDevices = devices.filter((device) => {
     const matchesSearch =

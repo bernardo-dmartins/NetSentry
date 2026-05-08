@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Bell, Check, X, Trash2, Settings, CheckCircle, AlertTriangle, XCircle, Info } from 'lucide-react';
+import { Bell, X, Trash2, Settings, CheckCircle, AlertTriangle, XCircle, Info } from 'lucide-react';
 import websocketService from '../frontServices/websocket';
 
 const NotificationsDropdown = () => {

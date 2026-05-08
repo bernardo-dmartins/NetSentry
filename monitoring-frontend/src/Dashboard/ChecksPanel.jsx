@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import {
   Plus,
   RefreshCw,
@@ -48,7 +48,7 @@ export default function ChecksPanel({ device }) {
   const [showModal, setShowModal] = useState(false);
   const [editingCheck, setEditingCheck] = useState(null);
 
-  const loadChecks = async () => {
+  const loadChecks = useCallback(async () => {
     if (!device) return;
     setLoading(true);
     setError(null);
@@ -62,7 +62,7 @@ export default function ChecksPanel({ device }) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [device]);
 
   const loadCheckDetails = async (checkId) => {
     if (!checkId) return;
@@ -89,7 +89,7 @@ export default function ChecksPanel({ device }) {
     setHistory([]);
     setStats(null);
     loadChecks();
-  }, [device?.id]);
+  }, [device?.id, loadChecks]);
 
   const handleRun = async (check, e) => {
     e.stopPropagation();

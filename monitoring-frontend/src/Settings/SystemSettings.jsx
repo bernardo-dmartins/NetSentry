@@ -1,27 +1,20 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Settings,
   Bell,
-  Clock,
-  Mail,
-  Zap,
   Shield,
   Database,
-  Smartphone,
-  Moon,
-  Sun,
   Monitor,
   Activity,
   AlertTriangle,
   CheckCircle,
   Save,
-  RotateCcw,
-  Icon
+  RotateCcw
 } from 'lucide-react';
 import { settingsAPI } from '../frontServices/api';
 
 const SystemSettings = () => {
-  const defaultSettings = {
+  const defaultSettings = useMemo(() => ({
     // Monitoramento
     monitoring: {
       interval: 30,
@@ -73,7 +66,7 @@ const SystemSettings = () => {
       keepMetrics: 365,
       autoCleanup: true,
     },
-  };
+  }), []);
 
   // Estado das configurações
   const [settings, setSettings] = useState(defaultSettings);
@@ -84,35 +77,35 @@ const SystemSettings = () => {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
-  const normalizeSettings = (data) => ({
+  const normalizeSettings = useCallback((data) => ({
     ...defaultSettings,
     ...data,
     email: {
       ...defaultSettings.email,
       ...(data?.email || {})
     }
-  });
-
-  const loadSettings = async () => {
-    try {
-      setLoading(true);
-      setError('');
-      const response = await settingsAPI.getSystem();
-      if (response.data?.success) {
-        setSettings(normalizeSettings(response.data.data));
-      }
-    } catch (err) {
-      setError(err.response?.data?.message || 'Error loading system settings');
-    } finally {
-      setLoading(false);
-      setHasChanges(false);
-      setSaveSuccess(false);
-    }
-  };
+  }), [defaultSettings]);
 
   useEffect(() => {
+    const loadSettings = async () => {
+      try {
+        setLoading(true);
+        setError('');
+        const response = await settingsAPI.getSystem();
+        if (response.data?.success) {
+          setSettings(normalizeSettings(response.data.data));
+        }
+      } catch (err) {
+        setError(err.response?.data?.message || 'Error loading system settings');
+      } finally {
+        setLoading(false);
+        setHasChanges(false);
+        setSaveSuccess(false);
+      }
+    };
+
     loadSettings();
-  }, []);
+  }, [normalizeSettings]);
 
   const handleChange = (category, field, value) => {
     setSettings(prev => ({
