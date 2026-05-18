@@ -17,6 +17,7 @@ class MonitoringService {
     this.pingTimeout = parseInt(process.env.PING_TIMEOUT, 10) || 5000;
     this.httpTimeout = parseInt(process.env.HTTP_TIMEOUT, 10) || 5000;
     this.retryAttempts = parseInt(process.env.MONITORING_RETRIES, 10) || 3;
+    this.allowInsecureTls = `${process.env.ALLOW_INSECURE_TLS || ""}`.toLowerCase() === "true";
     this.notifications = {
       emailAlerts: true,
       criticalOnly: false,
@@ -24,6 +25,12 @@ class MonitoringService {
       quietStart: "22:00",
       quietEnd: "08:00",
     };
+
+    if (this.allowInsecureTls) {
+      logger.warn(
+        "ALLOW_INSECURE_TLS=true enabled. TLS certificate validation is disabled for SSL checks."
+      );
+    }
   }
 
   parsePacketLoss(value) {
@@ -369,7 +376,7 @@ class MonitoringService {
           host,
           port,
           servername: host,
-          rejectUnauthorized: false,
+          rejectUnauthorized: !this.allowInsecureTls,
           timeout: timeoutMs,
         },
         () => {
