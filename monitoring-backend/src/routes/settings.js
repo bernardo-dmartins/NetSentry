@@ -1,11 +1,18 @@
 const express = require('express');
 const router = express.Router();
-const { authMiddleware } = require('../middleware/authJWT');
+const { authMiddleware, rateLimitMiddleware } = require('../middleware/authJWT');
 const { asyncHandler } = require('../middleware/errorHandler');
 const { ValidationError } = require('../errors/AppError');
 const SystemSettings = require('../models/SystemSettings');
 const logger = require('../utils/logger');
 const systemSettingsRuntime = require('../services/systemSettingsRuntime');
+
+const isDevelopment = process.env.NODE_ENV === 'development';
+const systemResetRateLimitWindowMs =
+  parseInt(process.env.RATE_LIMIT_SYSTEM_RESET_WINDOW_MS, 10) || 60000;
+const systemResetRateLimitMax =
+  parseInt(process.env.RATE_LIMIT_SYSTEM_RESET_MAX_REQUESTS, 10) ||
+  (isDevelopment ? 30 : 5);
 
 /**
  * @swagger
@@ -187,7 +194,16 @@ router.post('/system', authMiddleware, asyncHandler(async (req, res) => {
  *       401:
  *         description: Unauthorized
  */
-router.post('/system/reset', authMiddleware, asyncHandler(async (req, res) => {
+router.post('/system/reset',
+  authMiddleware,
+  rateLimitMiddleware({
+    windowMs: systemResetRateLimitWindowMs,
+    max: systemResetRateLimitMax,
+    message: 'Too many reset attempts. Please wait before trying again.',
+    keyGenerator: (req) => `settings-reset:${req.user?.id || req.ip}`,
+    enforceInDevelopment: true,
+  }),
+  asyncHandler(async (req, res) => {
   const userId = req.user.id;
   const defaults = SystemSettings.getDefaults();
 
