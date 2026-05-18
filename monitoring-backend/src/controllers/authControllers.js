@@ -1,4 +1,5 @@
 const jwt = require('jsonwebtoken');
+const crypto = require('crypto')
 const { body, validationResult } = require('express-validator');
 const User = require('../models/User');
 const logger = require('../utils/logger');
@@ -21,7 +22,7 @@ class AuthController {
 
   // Generate JWT token with sessionId
   static generateToken(user) {
-    const sessionId = `${user.id}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  const sessionId = `${user.id}_${Date.now()}_${crypto.randomUUID()}`;
     
     return {
       token: jwt.sign(
