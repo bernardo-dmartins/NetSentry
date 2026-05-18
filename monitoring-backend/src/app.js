@@ -211,23 +211,9 @@ class Application {
 
         const isPolling = NOISY_ROUTES.some((r) => req.path.includes(r));
 
-        // Arquivo sempre recebe tudo com detalhes
-        logger[level](
-          `${req.method} ${req.path} ${res.statusCode} - ${duration}ms`,
-          { ip: req.ip, userAgent: req.get("user-agent") },
-        );
-
-        // Terminal: rotas de polling só aparecem se forem erro
         if (!isPolling || res.statusCode >= 400) {
-          console.log(
-            `\x1b[90m${new Date().toLocaleTimeString("pt-BR")}\x1b[0m`,
-            level === "error"
-              ? "\x1b[31m"
-              : level === "warn"
-                ? "\x1b[33m"
-                : "\x1b[36m",
+          logger[level](
             `${req.method} ${req.path} ${res.statusCode} - ${duration}ms`,
-            "\x1b[0m",
           );
         }
       });
