@@ -5,6 +5,10 @@ const DeviceCheck = require('../models/DeviceCheck');
 const logger = require('../utils/logger');
 const monitoringService = require('../services/monitoringService');
 const redisClient = require('../config/redis');
+const supportsDeviceOwnership = Object.prototype.hasOwnProperty.call(
+  Device.rawAttributes || {},
+  "userId",
+);
 
 class DeviceController {
   static validateDevice = [
@@ -16,9 +20,10 @@ class DeviceController {
   static async getAll(req, res) {
     try {
       const { status, type, search } = req.query;
+      const userId = req.user?.id;
 
       // Create cache key based on query parameters
-      const cacheKey = `devices:list:${status || 'all'}:${type || 'all'}:${search || 'none'}`;
+      const cacheKey = `devices:list:user:${userId}:${status || 'all'}:${type || 'all'}:${search || 'none'}`;
 
       // Try to get from cache first
       const cachedData = await redisClient.get(cacheKey);
@@ -31,6 +36,9 @@ class DeviceController {
 
       // Build filters
       const where = {};
+      if (supportsDeviceOwnership) {
+        where.userId = userId;
+      }
 
       if (status && status !== 'all') {
         where.status = status;
@@ -109,6 +117,7 @@ class DeviceController {
   static async getById(req, res) {
     try {
       const { id } = req.params;
+      const userId = req.user?.id;
 
       // Try cache first
       const cacheKey = `device:${id}`;
@@ -128,6 +137,13 @@ class DeviceController {
         return res.status(404).json({
           success: false,
           message: 'Device not found'
+        });
+      }
+
+      if (supportsDeviceOwnership && device.userId !== userId) {
+        return res.status(403).json({
+          success: false,
+          message: 'Unauthorized: Device does not belong to this user'
         });
       }
 
@@ -160,6 +176,7 @@ class DeviceController {
       }
 
       const { name, ip, type, checkUrl, port, description } = req.body;
+      const userId = req.user?.id;
 
       // Check if IP already exists
       const existingDevice = await Device.findOne({ where: { ip } });
@@ -171,14 +188,19 @@ class DeviceController {
       }
 
       // Create device
-      const device = await Device.create({
+      const createPayload = {
         name,
         ip,
         type,
         checkUrl,
         port,
         description
-      });
+      };
+      if (supportsDeviceOwnership) {
+        createPayload.userId = userId;
+      }
+
+      const device = await Device.create(createPayload);
 
       // Create default check for backward compatibility
       const defaultCheck = await DeviceCheck.create({
@@ -220,6 +242,7 @@ class DeviceController {
     try {
       const { id } = req.params;
       const { name, ip, type, checkUrl, port, description, isActive } = req.body;
+      const userId = req.user?.id;
 
       const device = await Device.findByPk(id);
 
@@ -227,6 +250,13 @@ class DeviceController {
         return res.status(404).json({
           success: false,
           message: 'Device not found'
+        });
+      }
+
+      if (supportsDeviceOwnership && device.userId !== userId) {
+        return res.status(403).json({
+          success: false,
+          message: 'Unauthorized: Device does not belong to this user'
         });
       }
 
@@ -315,6 +345,7 @@ class DeviceController {
   static async delete(req, res) {
     try {
       const { id } = req.params;
+      const userId = req.user?.id;
 
       const device = await Device.findByPk(id);
 
@@ -322,6 +353,13 @@ class DeviceController {
         return res.status(404).json({
           success: false,
           message: 'Device not found'
+        });
+      }
+
+      if (supportsDeviceOwnership && device.userId !== userId) {
+        return res.status(403).json({
+          success: false,
+          message: 'Unauthorized: Device does not belong to this user'
         });
       }
 
@@ -351,6 +389,7 @@ class DeviceController {
   static async checkDevice(req, res) {
     try {
       const { id } = req.params;
+      const userId = req.user?.id;
 
       const device = await Device.findByPk(id);
 
@@ -358,6 +397,13 @@ class DeviceController {
         return res.status(404).json({
           success: false,
           message: 'Device not found'
+        });
+      }
+
+      if (supportsDeviceOwnership && device.userId !== userId) {
+        return res.status(403).json({
+          success: false,
+          message: 'Unauthorized: Device does not belong to this user'
         });
       }
 

@@ -6,6 +6,10 @@ const CheckResult = require("../models/CheckResult");
 const Device = require("../models/Device");
 const logger = require("../utils/logger");
 const monitoringService = require("../services/monitoringService");
+const supportsDeviceOwnership = Object.prototype.hasOwnProperty.call(
+  Device.rawAttributes || {},
+  "userId",
+);
 
 const CHECK_TYPES = [
   "ping",
@@ -225,12 +229,22 @@ class CheckController {
   static async verifyDeviceOwnership(deviceId, userId) {
     const device = await Device.findByPk(deviceId);
     if (!device) {
-      return { authorized: false, device: null, message: "Device not found" };
+      return {
+        authorized: false,
+        device: null,
+        message: "Device not found",
+        statusCode: 404,
+      };
     }
-    if (device.userId !== userId) {
-      return { authorized: false, device: null, message: "Unauthorized: Device does not belong to this user" };
+    if (supportsDeviceOwnership && device.userId !== userId) {
+      return {
+        authorized: false,
+        device: null,
+        message: "Unauthorized: Device does not belong to this user",
+        statusCode: 403,
+      };
     }
-    return { authorized: true, device };
+    return { authorized: true, device, statusCode: 200 };
   }
 
   static async listByDevice(req, res) {
@@ -246,7 +260,7 @@ class CheckController {
       // Verify ownership
       const ownership = await CheckController.verifyDeviceOwnership(deviceId, userId);
       if (!ownership.authorized) {
-        return res.status(ownership.device ? 403 : 404).json({ 
+        return res.status(ownership.statusCode || 403).json({
           success: false, 
           message: ownership.message 
         });
@@ -277,7 +291,7 @@ class CheckController {
       // Verify ownership
       const ownership = await CheckController.verifyDeviceOwnership(deviceId, userId);
       if (!ownership.authorized) {
-        return res.status(ownership.device ? 403 : 404).json({ 
+        return res.status(ownership.statusCode || 403).json({
           success: false, 
           message: ownership.message 
         });
@@ -350,7 +364,7 @@ class CheckController {
 
       // Verify ownership via device association
       const device = await Device.findByPk(check.deviceId);
-      if (!device || device.userId !== userId) {
+      if (!device || (supportsDeviceOwnership && device.userId !== userId)) {
         return res.status(403).json({ success: false, message: "Unauthorized: Check does not belong to this user" });
       }
 
@@ -379,7 +393,7 @@ class CheckController {
 
       // Verify ownership via device association
       const device = await Device.findByPk(check.deviceId);
-      if (!device || device.userId !== userId) {
+      if (!device || (supportsDeviceOwnership && device.userId !== userId)) {
         return res.status(403).json({ success: false, message: "Unauthorized: Check does not belong to this user" });
       }
 
@@ -449,7 +463,7 @@ class CheckController {
 
       // Verify ownership via device association
       const device = await Device.findByPk(check.deviceId);
-      if (!device || device.userId !== userId) {
+      if (!device || (supportsDeviceOwnership && device.userId !== userId)) {
         return res.status(403).json({ success: false, message: "Unauthorized: Check does not belong to this user" });
       }
 
@@ -480,7 +494,7 @@ class CheckController {
 
       // Verify ownership via device association
       const device = await Device.findByPk(check.deviceId);
-      if (!device || device.userId !== userId) {
+      if (!device || (supportsDeviceOwnership && device.userId !== userId)) {
         return res.status(403).json({ success: false, message: "Unauthorized: Check does not belong to this user" });
       }
 
@@ -523,7 +537,7 @@ class CheckController {
 
       // Verify ownership via device association
       const device = await Device.findByPk(check.deviceId);
-      if (!device || device.userId !== userId) {
+      if (!device || (supportsDeviceOwnership && device.userId !== userId)) {
         return res.status(403).json({ success: false, message: "Unauthorized: Check does not belong to this user" });
       }
 
@@ -559,7 +573,7 @@ class CheckController {
 
       // Verify ownership via device association
       const device = await Device.findByPk(check.deviceId);
-      if (!device || device.userId !== userId) {
+      if (!device || (supportsDeviceOwnership && device.userId !== userId)) {
         return res.status(403).json({ success: false, message: "Unauthorized: Check does not belong to this user" });
       }
 
@@ -601,7 +615,7 @@ class CheckController {
 
       // Verify ownership via device association
       const device = await Device.findByPk(check.deviceId);
-      if (!device || device.userId !== userId) {
+      if (!device || (supportsDeviceOwnership && device.userId !== userId)) {
         return res.status(403).json({ success: false, message: "Unauthorized: Check does not belong to this user" });
       }
 
