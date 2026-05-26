@@ -1,15 +1,15 @@
 
 import React, { useState, useEffect, lazy, Suspense } from "react";
-import Layout from "./layout/Layout";
+import Layout from "./Components/layout/Layout";
 
 // ===== LAZY LOADING - Componentes carregados sob demanda =====
-const Login = lazy(() => import("./Auth/Login"));
-const StyleDashboard = lazy(() => import("./Dashboard/StyleDashboard"));
-const UserSettings = lazy(() => import("./Settings/UserSettings"));
-const AnalyticsPage = lazy(() => import("./Analytics/AnalyticsPage"));
-const SystemSettings = lazy(() => import("./Settings/SystemSettings"));
-const AlertsPage = lazy(() => import("./Alerts/AlertsPage"));
-const ProfilePage = lazy(() => import("./Profile/ProfilePage"));
+const Login = lazy(() => import("./Features/Auth/Login"));
+const StyleDashboard = lazy(() => import("./Features/Dashboard/StyleDashboard"));
+const UserSettings = lazy(() => import("./Features/Settings/UserSettings"));
+const AnalyticsPage = lazy(() => import("./Features/Analytics/AnalyticsPage"));
+const SystemSettings = lazy(() => import("./Features/Settings/SystemSettings"));
+const AlertsPage = lazy(() => import("./Features/Alerts/AlertsPage"));
+const ProfilePage = lazy(() => import("./Features/Profile/ProfilePage"));
 
 const PageLoader = () => (
   <div className="flex items-center justify-center min-h-[60vh]">
