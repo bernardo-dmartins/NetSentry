@@ -98,6 +98,7 @@ const Sidebar = ({ currentPage, onNavigate, isCollapsed, onToggleCollapse, user 
 
           return (
             <button
+              data-testid={`sidebar-nav-${item.id}`}
               key={item.id}
               onClick={() => onNavigate(item.id)}
               className={`

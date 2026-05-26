@@ -9,6 +9,7 @@ export default function Filters({ filter, setFilter, statusFilter, setStatusFilt
           <div className="relative">
             <Search className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 transform -translate-y-1/2" />
             <input
+              data-testid="dashboard-search-input"
               type="text"
               placeholder="Search hosts..."
               className="bg-gray-700 border border-gray-600 text-white pl-10 pr-4 py-2 rounded-lg focus:outline-none focus:border-transparent"
@@ -19,6 +20,7 @@ export default function Filters({ filter, setFilter, statusFilter, setStatusFilt
           <div className="flex items-center space-x-2">
             <Filter className="w-5 h-5 text-gray-400" />
             <select
+              data-testid="dashboard-status-filter"
               className="bg-gray-700 border border-gray-600 text-white px-3 py-2 rounded-lg focus:outline-none "
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
@@ -37,6 +39,7 @@ export default function Filters({ filter, setFilter, statusFilter, setStatusFilt
           </div>
           
           <button
+            data-testid="dashboard-add-host-button"
             onClick={onAddHost}
             className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition font-semibold shadow-lg"
           >

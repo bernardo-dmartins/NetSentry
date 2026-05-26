@@ -10,7 +10,7 @@ import {
   XCircle,
   Clock,
 } from "lucide-react";
-import { checksAPI } from "../frontServices/api";
+import { checksAPI } from "../../frontServices/api";
 import CheckFormModal from "./CheckFormModal";
 
 const statusBadge = (status) => {
@@ -157,13 +157,14 @@ export default function ChecksPanel({ device }) {
   }
 
   return (
-    <div className="bg-gray-800 border border-gray-700 rounded-lg shadow-lg">
+    <div data-testid="checks-panel" className="bg-gray-800 border border-gray-700 rounded-lg shadow-lg">
       <div className="px-6 py-4 border-b border-gray-700 bg-gray-800/50 flex items-center justify-between">
         <h2 className="text-lg font-semibold text-white flex items-center">
           <Activity className="w-5 h-5 mr-2 text-blue-400" />
           Checks
         </h2>
         <button
+          data-testid="checks-add-button"
           onClick={handleAdd}
           className="flex items-center gap-2 px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition text-sm"
         >
@@ -189,6 +190,7 @@ export default function ChecksPanel({ device }) {
               const badge = statusBadge(check.lastStatus);
               return (
                 <div
+                  data-testid={`check-item-${check.id}`}
                   key={check.id}
                   className={`p-3 rounded-lg border border-gray-700 cursor-pointer ${
                     selectedCheck?.id === check.id ? "bg-gray-700/50" : "bg-gray-900/40"
@@ -210,6 +212,7 @@ export default function ChecksPanel({ device }) {
                         <span className="ml-1 capitalize">{check.lastStatus}</span>
                       </span>
                       <button
+                        data-testid={`check-run-${check.id}`}
                         className="p-2 text-green-400 hover:bg-green-500/10 rounded-md"
                         onClick={(e) => handleRun(check, e)}
                         title="Run check"
@@ -217,6 +220,7 @@ export default function ChecksPanel({ device }) {
                         <RefreshCw className="w-4 h-4" />
                       </button>
                       <button
+                        data-testid={`check-edit-${check.id}`}
                         className="p-2 text-yellow-400 hover:bg-yellow-500/10 rounded-md"
                         onClick={(e) => handleEdit(check, e)}
                         title="Edit check"
@@ -224,6 +228,7 @@ export default function ChecksPanel({ device }) {
                         <Edit className="w-4 h-4" />
                       </button>
                       <button
+                        data-testid={`check-delete-${check.id}`}
                         className="p-2 text-red-400 hover:bg-red-500/10 rounded-md"
                         onClick={(e) => handleDelete(check, e)}
                         title="Delete check"

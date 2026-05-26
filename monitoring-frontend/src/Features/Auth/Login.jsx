@@ -104,6 +104,7 @@ export default function Login({ onLoginSuccess }) {
           {/* Tabs */}
           <div className="flex gap-2 mb-6">
             <button
+              data-testid="auth-tab-login"
               onClick={() => {
                 setIsLogin(true);
                 setError('');
@@ -118,6 +119,7 @@ export default function Login({ onLoginSuccess }) {
               Login
             </button>
             <button
+              data-testid="auth-tab-register"
               onClick={() => {
                 setIsLogin(false);
                 setError('');
@@ -148,6 +150,7 @@ export default function Login({ onLoginSuccess }) {
               <div className="relative">
                 <User className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
                 <input
+                  data-testid="auth-input-username"
                   type="text"
                   name="username"
                   value={formData.username}
@@ -167,6 +170,7 @@ export default function Login({ onLoginSuccess }) {
                 <div className="relative">
                   <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
                   <input
+                    data-testid="auth-input-email"
                     type="email"
                     name="email"
                     value={formData.email}
@@ -186,6 +190,7 @@ export default function Login({ onLoginSuccess }) {
               <div className="relative">
                 <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
                 <input
+                  data-testid="auth-input-password"
                   type={showPassword ? 'text' : 'password'}
                   name="password"
                   value={formData.password}
@@ -195,6 +200,7 @@ export default function Login({ onLoginSuccess }) {
                   placeholder="Enter your password"
                 />
                 <button
+                  data-testid="auth-toggle-password"
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-300 transition"
@@ -216,6 +222,7 @@ export default function Login({ onLoginSuccess }) {
                 <div className="relative">
                   <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
                   <input
+                    data-testid="auth-input-confirm-password"
                     type={showPassword ? 'text' : 'password'}
                     name="confirmPassword"
                     value={formData.confirmPassword}
@@ -229,6 +236,7 @@ export default function Login({ onLoginSuccess }) {
             )}
 
             <button
+              data-testid="auth-submit"
               type="submit"
               disabled={loading}
               className="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 focus:ring-4 focus:ring-blue-500/50 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-lg"

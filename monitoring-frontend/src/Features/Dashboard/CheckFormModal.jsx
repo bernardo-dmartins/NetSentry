@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { X, AlertCircle, CheckCircle } from "lucide-react";
-import { checksAPI } from "../frontServices/api";
+import { checksAPI } from "../../frontServices/api";
 
 const CHECK_TYPES = [
   "ping",
@@ -150,7 +150,7 @@ export default function CheckFormModal({ device, onClose, onSuccess, editCheck =
 
   return (
     <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
-      <div className="bg-gray-800 rounded-lg shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden border border-gray-700">
+      <div data-testid="check-form-modal" className="bg-gray-800 rounded-lg shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden border border-gray-700">
         <div className="bg-gray-800 border-b border-gray-700 px-6 py-4 flex items-center justify-between">
           <h2 className="text-2xl font-bold text-white">
             {editCheck ? "Edit Check" : "Add Check"}
@@ -182,6 +182,7 @@ export default function CheckFormModal({ device, onClose, onSuccess, editCheck =
             <div>
               <label className="block text-sm font-medium text-gray-300 mb-2">Name</label>
               <input
+                data-testid="check-input-name"
                 type="text"
                 name="name"
                 value={formData.name}
@@ -195,6 +196,7 @@ export default function CheckFormModal({ device, onClose, onSuccess, editCheck =
             <div>
               <label className="block text-sm font-medium text-gray-300 mb-2">Type</label>
               <select
+                data-testid="check-input-type"
                 name="type"
                 value={formData.type}
                 onChange={handleTypeChange}
@@ -214,6 +216,7 @@ export default function CheckFormModal({ device, onClose, onSuccess, editCheck =
                   Interval (s)
                 </label>
                 <input
+                  data-testid="check-input-interval"
                   type="number"
                   name="intervalSeconds"
                   value={formData.intervalSeconds}
@@ -228,6 +231,7 @@ export default function CheckFormModal({ device, onClose, onSuccess, editCheck =
                   Timeout (ms)
                 </label>
                 <input
+                  data-testid="check-input-timeout"
                   type="number"
                   name="timeoutMs"
                   value={formData.timeoutMs}
@@ -271,6 +275,7 @@ export default function CheckFormModal({ device, onClose, onSuccess, editCheck =
                 Config (JSON)
               </label>
               <textarea
+                data-testid="check-input-config"
                 name="config"
                 value={formData.config}
                 onChange={handleChange}
@@ -284,6 +289,7 @@ export default function CheckFormModal({ device, onClose, onSuccess, editCheck =
                 Expected (JSON)
               </label>
               <textarea
+                data-testid="check-input-expected"
                 name="expected"
                 value={formData.expected}
                 onChange={handleChange}
@@ -311,6 +317,7 @@ export default function CheckFormModal({ device, onClose, onSuccess, editCheck =
 
         <div className="bg-gray-800 border-t border-gray-700 px-6 py-4 flex justify-end gap-3">
           <button
+            data-testid="check-modal-close-button"
             type="button"
             onClick={onClose}
             className="px-6 py-2.5 bg-gray-700 text-white rounded-lg hover:bg-gray-600 transition font-semibold"
@@ -318,6 +325,7 @@ export default function CheckFormModal({ device, onClose, onSuccess, editCheck =
             Close
           </button>
           <button
+            data-testid="check-modal-save-button"
             type="submit"
             disabled={loading}
             onClick={handleSubmit}

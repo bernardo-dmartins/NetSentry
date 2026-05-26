@@ -10,7 +10,7 @@ import {
   Router,
   Monitor,
 } from "lucide-react";
-import { devicesAPI } from "../frontServices/api";
+import { devicesAPI } from "../../frontServices/api";
 
 export default function AddHostModal({
   onClose,
@@ -126,7 +126,7 @@ export default function AddHostModal({
 
   return (
     <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
-      <div className="bg-gray-800 rounded-lg shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden border border-gray-700">
+      <div data-testid="host-modal" className="bg-gray-800 rounded-lg shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden border border-gray-700">
         {/* Header */}
         <div className="bg-gray-800 border-b border-gray-700 px-6 py-4 flex items-center justify-between">
           <h2 className="text-2xl font-bold text-white flex items-center gap-2">
@@ -134,6 +134,7 @@ export default function AddHostModal({
             {editDevice ? "Edit Host" : "Add New Host"}
           </h2>
           <button
+            data-testid="host-modal-close-icon"
             onClick={onClose}
             className="text-gray-400 hover:text-white transition"
           >
@@ -169,6 +170,7 @@ export default function AddHostModal({
                 Hostname <span className="text-red-400">*</span>
               </label>
               <input
+                data-testid="host-input-name"
                 type="text"
                 name="name"
                 value={formData.name}
@@ -185,6 +187,7 @@ export default function AddHostModal({
                 IP or Hostname <span className="text-red-400">*</span>
               </label>
               <input
+                data-testid="host-input-ip"
                 type="text"
                 name="ip"
                 value={formData.ip}
@@ -217,6 +220,7 @@ export default function AddHostModal({
                   { value: "other", label: "Other", icon: "Monitor" },
                 ].map((type) => (
                   <button
+                    data-testid={`host-type-${type.value}`}
                     key={type.value}
                     type="button"
                     onClick={() =>
@@ -243,6 +247,7 @@ export default function AddHostModal({
                 HTTP Check URL (Optional)
               </label>
               <input
+                data-testid="host-input-check-url"
                 type="text"
                 name="checkUrl"
                 value={formData.checkUrl}
@@ -262,6 +267,7 @@ export default function AddHostModal({
                 Port (Optional)
               </label>
               <input
+                data-testid="host-input-port"
                 type="number"
                 name="port"
                 value={formData.port}
@@ -279,6 +285,7 @@ export default function AddHostModal({
                 Description
               </label>
               <textarea
+                data-testid="host-input-description"
                 name="description"
                 value={formData.description}
                 onChange={handleChange}
@@ -302,6 +309,7 @@ export default function AddHostModal({
         {/* Footer */}
         <div className="bg-gray-800 border-t border-gray-700 px-6 py-4 flex justify-end gap-3">
           <button
+            data-testid="host-modal-close-button"
             type="button"
             onClick={onClose}
             className="px-6 py-2.5 bg-gray-700 text-white rounded-lg hover:bg-gray-600 transition font-semibold"
@@ -309,6 +317,7 @@ export default function AddHostModal({
             Close
           </button>
           <button
+            data-testid="host-modal-save-button"
             type="submit"
             disabled={loading}
             onClick={handleSubmit}

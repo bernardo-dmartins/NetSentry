@@ -10,7 +10,7 @@ import {
   Filter,
   Clock,
 } from "lucide-react";
-import { alertsAPI } from "../frontServices/api";
+import { alertsAPI } from "../../frontServices/api";
 
 const levelStyles = {
   disaster: "bg-red-500/10 text-red-400 border-red-500/30",
@@ -161,7 +161,7 @@ export default function AlertsPage() {
   };
 
   return (
-    <div className="p-6 space-y-6">
+    <div data-testid="alerts-page" className="p-6 space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-white mb-2">Alerts</h1>
@@ -169,6 +169,7 @@ export default function AlertsPage() {
         </div>
         <div className="flex items-center gap-3">
           <button
+            data-testid="alerts-cleanup-button"
             onClick={handleCleanup}
             disabled={cleaning}
             className="flex items-center gap-2 px-4 py-2 text-sm bg-gray-900 border border-gray-700 rounded-lg text-gray-300 hover:text-white hover:border-gray-600 disabled:opacity-60 disabled:cursor-not-allowed"
@@ -177,6 +178,7 @@ export default function AlertsPage() {
             {cleaning ? "Cleaning..." : "Cleanup"}
           </button>
           <button
+            data-testid="alerts-refresh-button"
             onClick={handleRefresh}
             disabled={refreshing}
             className="flex items-center gap-2 px-4 py-2 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-lg disabled:opacity-60 disabled:cursor-not-allowed"
@@ -218,6 +220,7 @@ export default function AlertsPage() {
           <div className="flex items-center gap-2 bg-gray-800 border border-gray-700 rounded-lg px-3 py-2">
             <Search className="w-4 h-4 text-gray-400" />
             <input
+              data-testid="alerts-search-input"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="bg-transparent text-sm text-white outline-none w-56"
@@ -225,6 +228,7 @@ export default function AlertsPage() {
             />
           </div>
           <select
+            data-testid="alerts-level-filter"
             value={levelFilter}
             onChange={(e) => setLevelFilter(e.target.value)}
             className="bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white"
@@ -235,6 +239,7 @@ export default function AlertsPage() {
             <option value="information">Information</option>
           </select>
           <select
+            data-testid="alerts-status-filter"
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
             className="bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white"
@@ -269,7 +274,7 @@ export default function AlertsPage() {
               const status = statusBadge(alert);
               const statusClass = statusStyles[status];
               return (
-                <div key={alert.id} className="p-5 hover:bg-gray-800/40 transition">
+                <div data-testid={`alert-item-${alert.id}`} key={alert.id} className="p-5 hover:bg-gray-800/40 transition">
                   <div className="flex flex-col lg:flex-row lg:items-center gap-4">
                     <div className="flex-1 space-y-2">
                       <div className="flex flex-wrap items-center gap-2">
@@ -303,6 +308,7 @@ export default function AlertsPage() {
                     <div className="flex items-center gap-2">
                       {!alert.acknowledged && (
                         <button
+                          data-testid={`alert-ack-${alert.id}`}
                           onClick={() => handleAcknowledge(alert.id)}
                           className="flex items-center gap-2 px-3 py-2 text-xs bg-gray-800 border border-gray-700 rounded-lg text-gray-200 hover:border-gray-500"
                         >
@@ -312,6 +318,7 @@ export default function AlertsPage() {
                       )}
                       {!alert.resolved && (
                         <button
+                          data-testid={`alert-resolve-${alert.id}`}
                           onClick={() => handleResolve(alert.id)}
                           className="flex items-center gap-2 px-3 py-2 text-xs bg-green-600/20 border border-green-600/40 rounded-lg text-green-300 hover:border-green-400"
                         >
@@ -320,6 +327,7 @@ export default function AlertsPage() {
                         </button>
                       )}
                       <button
+                        data-testid={`alert-delete-${alert.id}`}
                         onClick={() => handleDelete(alert.id)}
                         className="flex items-center gap-2 px-3 py-2 text-xs bg-red-600/10 border border-red-500/30 rounded-lg text-red-300 hover:border-red-400"
                       >

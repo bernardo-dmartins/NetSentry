@@ -22,7 +22,7 @@ import {
   Legend,
   ResponsiveContainer
 } from 'recharts';
-import { analyticsAPI } from '../frontServices/api';
+import { analyticsAPI } from '../../frontServices/api';
 
 const AnalyticsPage = () => {
   const [timeRange, setTimeRange] = useState('24h');
@@ -138,7 +138,7 @@ const AnalyticsPage = () => {
   }
 
   return (
-    <div className="p-6 space-y-6">
+    <div data-testid="analytics-page" className="p-6 space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -150,6 +150,7 @@ const AnalyticsPage = () => {
         <div className="flex items-center gap-2 bg-gray-900 border border-gray-800 rounded-lg p-1">
           {['24h', '7d', '30d'].map(range => (
             <button
+              data-testid={`analytics-range-${range}`}
               key={range}
               onClick={() => setTimeRange(range)}
               className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${

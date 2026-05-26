@@ -1,6 +1,6 @@
 import React, { useMemo, useState, useEffect, useCallback } from "react";
-import { devicesAPI, alertsAPI, settingsAPI } from "../../src/frontServices/api";
-import websocketService from "../../src/frontServices/websocket";
+import { devicesAPI, alertsAPI, settingsAPI } from "../../frontServices/api";
+import websocketService from "../../frontServices/websocket";
 import StatsCards from "./StatsCards";
 import DevicesTable from "./DevicesTable";
 import Filters from "./Filters";

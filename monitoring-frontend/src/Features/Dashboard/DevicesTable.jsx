@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Server, Database, Wifi, Router, Monitor, CheckCircle, XCircle, AlertTriangle, Clock, Eye, Edit, Trash2, RefreshCw, AlertCircle as AlertIcon } from 'lucide-react';
-import { devicesAPI } from '../frontServices/api';
+import { devicesAPI } from '../../frontServices/api';
 
 export default function DevicesTable({ devices, setSelectedDevice, onEditDevice, onRefresh }) {
   const [deletingId, setDeletingId] = useState(null);
@@ -161,7 +161,7 @@ export default function DevicesTable({ devices, setSelectedDevice, onEditDevice,
         </div>
         
         <div className="overflow-x-auto">
-          <table className="w-full">
+          <table data-testid="devices-table" className="w-full">
             <thead className="bg-gray-900/50">
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Host</th>
@@ -183,7 +183,8 @@ export default function DevicesTable({ devices, setSelectedDevice, onEditDevice,
                 </tr>
               ) : (
                 devices.map((device) => (
-                  <tr 
+                  <tr
+                    data-testid={`device-row-${device.id}`}
                     key={device.id}
                     className="hover:bg-gray-700/50 cursor-pointer transition-colors duration-200"
                     onClick={() => setSelectedDevice(device)}
@@ -229,7 +230,8 @@ export default function DevicesTable({ devices, setSelectedDevice, onEditDevice,
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center justify-center gap-1">
-                        <button 
+                        <button
+                          data-testid={`device-view-${device.id}`}
                           className="p-2 text-blue-400 hover:bg-blue-500/10 rounded-md transition-colors"
                           onClick={(e) => {
                             e.stopPropagation();
@@ -240,7 +242,8 @@ export default function DevicesTable({ devices, setSelectedDevice, onEditDevice,
                           <Eye className="w-4 h-4" />
                         </button>
                         
-                        <button 
+                        <button
+                          data-testid={`device-edit-${device.id}`}
                           className="p-2 text-yellow-400 hover:bg-yellow-500/10 rounded-md transition-colors"
                           onClick={(e) => {
                             e.stopPropagation();
@@ -251,7 +254,8 @@ export default function DevicesTable({ devices, setSelectedDevice, onEditDevice,
                           <Edit className="w-4 h-4" />
                         </button>
                         
-                        <button 
+                        <button
+                          data-testid={`device-check-${device.id}`}
                           className="p-2 text-green-400 hover:bg-green-500/10 rounded-md transition-colors"
                           onClick={(e) => handleCheckNow(device, e)}
                           title="Check now"
@@ -259,7 +263,8 @@ export default function DevicesTable({ devices, setSelectedDevice, onEditDevice,
                           <RefreshCw className="w-4 h-4" />
                         </button>
                         
-                        <button 
+                        <button
+                          data-testid={`device-delete-${device.id}`}
                           className="p-2 text-red-400 hover:bg-red-500/10 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                           onClick={(e) => handleDeleteClick(device, e)}
                           disabled={deletingId === device.id}
@@ -283,7 +288,7 @@ export default function DevicesTable({ devices, setSelectedDevice, onEditDevice,
 
       {confirmDelete && (
         <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
-          <div className="bg-gray-800 rounded-lg shadow-2xl max-w-md w-full border border-gray-700 animate-fade-in">
+          <div data-testid="delete-confirm-modal" className="bg-gray-800 rounded-lg shadow-2xl max-w-md w-full border border-gray-700 animate-fade-in">
             {/* Header */}
             <div className="px-6 py-4 border-b border-gray-700">
               <div className="flex items-center gap-3">
@@ -311,6 +316,7 @@ export default function DevicesTable({ devices, setSelectedDevice, onEditDevice,
 
             <div className="px-6 py-4 bg-gray-900/50 border-t border-gray-700 flex gap-3">
               <button
+                data-testid="delete-cancel-button"
                 onClick={handleCancelDelete}
                 disabled={deletingId !== null}
                 className="flex-1 px-4 py-2.5 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition font-semibold disabled:opacity-50"
@@ -318,6 +324,7 @@ export default function DevicesTable({ devices, setSelectedDevice, onEditDevice,
                 Cancel
               </button>
               <button
+                data-testid="delete-confirm-button"
                 onClick={handleConfirmDelete}
                 disabled={deletingId !== null}
                 className="flex-1 px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-lg transition font-semibold disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"

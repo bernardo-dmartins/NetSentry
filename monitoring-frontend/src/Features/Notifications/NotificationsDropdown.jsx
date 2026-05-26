@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Bell, X, Trash2, Settings, CheckCircle, AlertTriangle, XCircle, Info } from 'lucide-react';
-import websocketService from '../frontServices/websocket';
+import websocketService from '../../frontServices/websocket';
 
 const NotificationsDropdown = () => {
   const [isOpen, setIsOpen] = useState(false);
@@ -226,6 +226,7 @@ const NotificationsDropdown = () => {
   return (
     <div className="relative" ref={dropdownRef}>
       <button
+        data-testid="notifications-toggle"
         onClick={() => setIsOpen(!isOpen)}
         className="relative p-2 text-gray-400 hover:text-white hover:bg-gray-800 rounded-lg transition-colors"
       >
@@ -238,13 +239,14 @@ const NotificationsDropdown = () => {
       </button>
 
       {isOpen && (
-        <div className="absolute right-0 top-full mt-2 w-96 bg-gray-800 rounded-lg shadow-2xl border border-gray-700 z-50 max-h-[600px] flex flex-col">
+        <div data-testid="notifications-dropdown" className="absolute right-0 top-full mt-2 w-96 bg-gray-800 rounded-lg shadow-2xl border border-gray-700 z-50 max-h-[600px] flex flex-col">
           <div className="p-4 border-b border-gray-700">
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-lg font-bold text-white">Notifications</h3>
               <div className="flex items-center gap-2">
                 {unreadCount > 0 && (
                   <button
+                    data-testid="notifications-mark-all-read"
                     onClick={markAllAsRead}
                     className="text-xs text-blue-400 hover:text-blue-300 transition-colors"
                   >
@@ -263,6 +265,7 @@ const NotificationsDropdown = () => {
             <div className="flex gap-2">
               {['all', 'unread', 'read'].map((f) => (
                 <button
+                  data-testid={`notifications-filter-${f}`}
                   key={f}
                   onClick={() => setFilter(f)}
                   className={`
@@ -346,6 +349,7 @@ const NotificationsDropdown = () => {
           {notifications.length > 0 && (
             <div className="p-3 border-t border-gray-700 flex items-center justify-between">
               <button
+                data-testid="notifications-clear-all"
                 onClick={clearAll}
                 className="text-xs text-red-400 hover:text-red-300 transition-colors"
               >

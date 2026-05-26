@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { Mail, User, Shield, Calendar, RefreshCw } from "lucide-react";
-import { authAPI } from "../frontServices/api";
+import { authAPI } from "../../frontServices/api";
 
 export default function ProfilePage() {
   const [user, setUser] = useState(null);

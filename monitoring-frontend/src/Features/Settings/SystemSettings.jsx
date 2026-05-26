@@ -11,7 +11,7 @@ import {
   Save,
   RotateCcw
 } from 'lucide-react';
-import { settingsAPI } from '../frontServices/api';
+import { settingsAPI } from '../../frontServices/api';
 
 const SystemSettings = () => {
   const defaultSettings = useMemo(() => ({
@@ -254,7 +254,7 @@ const SystemSettings = () => {
   }
 
   return (
-    <div className="p-6 max-w-6xl mx-auto">
+    <div data-testid="system-settings-page" className="p-6 max-w-6xl mx-auto">
       {/* Header */}
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-white mb-2">System Settings</h1>
@@ -448,6 +448,7 @@ const SystemSettings = () => {
           description="How often to refresh dashboard data (in seconds)"
         >
           <Input
+            data-testid="system-settings-dashboard-refresh-rate"
             type="number"
             value={settings.dashboard.refreshRate}
             onChange={(val) => handleChange('dashboard', 'refreshRate', parseInt(val))}
@@ -594,6 +595,7 @@ const SystemSettings = () => {
         
         <div className="flex items-center gap-3">
           <button
+            data-testid="system-settings-reset-button"
             onClick={handleReset}
             disabled={saving}
             className="flex items-center gap-2 px-4 py-2 text-gray-400 hover:text-white hover:bg-gray-800 rounded-lg transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
@@ -603,6 +605,7 @@ const SystemSettings = () => {
           </button>
           
           <button
+            data-testid="system-settings-save-button"
             onClick={handleSave}
             disabled={!hasChanges || saving}
             className={`

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Search, Settings, LogOut, User } from 'lucide-react';
-import NotificationsDropdown from '../Notifications/NotificationsDropdown';
+import NotificationsDropdown from '../../Features/Notifications/NotificationsDropdown';
 
 const Header = ({ user, onLogout, onOpenSettings }) => {
   const [showUserMenu, setShowUserMenu] = useState(false);
@@ -16,6 +16,7 @@ const Header = ({ user, onLogout, onOpenSettings }) => {
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
           <input
+            data-testid="header-global-search"
             type="text"
             placeholder="Search hosts, alerts, or settings..."
             className="w-full bg-gray-800 border border-gray-700 rounded-lg pl-10 pr-4 py-2 text-sm text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
@@ -41,7 +42,8 @@ const Header = ({ user, onLogout, onOpenSettings }) => {
           </div>
           
           <div className="relative">
-            <button 
+            <button
+              data-testid="header-user-menu-button"
               onClick={() => setShowUserMenu(!showUserMenu)}
               className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-semibold hover:ring-2 hover:ring-blue-500 transition-all"
             >
@@ -61,7 +63,8 @@ const Header = ({ user, onLogout, onOpenSettings }) => {
                       <p className="text-xs text-gray-400">{user?.email || 'user@netsentry.com'}</p>
                     </div>
                     
-                    <button 
+                    <button
+                      data-testid="header-menu-profile"
                       onClick={() => {
                         setShowUserMenu(false);
                       }}
@@ -71,7 +74,8 @@ const Header = ({ user, onLogout, onOpenSettings }) => {
                       Profile
                     </button>
                     
-                    <button 
+                    <button
+                      data-testid="header-menu-settings"
                       onClick={() => {
                         setShowUserMenu(false);
                         onOpenSettings();
@@ -84,7 +88,8 @@ const Header = ({ user, onLogout, onOpenSettings }) => {
                     
                     <div className="my-1 border-t border-gray-700"></div>
                     
-                    <button 
+                    <button
+                      data-testid="header-menu-logout"
                       onClick={() => {
                         setShowUserMenu(false);
                         onLogout();

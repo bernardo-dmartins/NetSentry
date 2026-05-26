@@ -115,7 +115,7 @@ export default function UserSettings({ onClose }) {
 
   return (
     <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
-      <div className="bg-gray-800 rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden border border-gray-700">
+      <div data-testid="settings-modal" className="bg-gray-800 rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden border border-gray-700">
         {/* Header */}
         <div className="bg-gray-800 border-b border-gray-700 px-6 py-4 flex items-center justify-between">
           <h2 className="text-2xl font-bold text-white flex items-center gap-2">
@@ -123,6 +123,7 @@ export default function UserSettings({ onClose }) {
             Account settings
           </h2>
           <button
+            data-testid="settings-close-icon"
             onClick={onClose}
             className="text-gray-400 hover:text-white transition"
           >
@@ -187,6 +188,7 @@ export default function UserSettings({ onClose }) {
                     New Email
                   </label>
                   <input
+                    data-testid="settings-email-input"
                     type="email"
                     name="email"
                     value={formData.email}
@@ -196,6 +198,7 @@ export default function UserSettings({ onClose }) {
                   />
                 </div>
                 <button
+                  data-testid="settings-save-email-button"
                   type="submit"
                   disabled={loading}
                   className="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 transition disabled:opacity-50 flex items-center justify-center gap-2"
@@ -218,6 +221,7 @@ export default function UserSettings({ onClose }) {
                     Current password
                   </label>
                   <input
+                    data-testid="settings-current-password-input"
                     type="password"
                     name="currentPassword"
                     value={formData.currentPassword}
@@ -231,6 +235,7 @@ export default function UserSettings({ onClose }) {
                     New password
                   </label>
                   <input
+                    data-testid="settings-new-password-input"
                     type="password"
                     name="newPassword"
                     value={formData.newPassword}
@@ -244,6 +249,7 @@ export default function UserSettings({ onClose }) {
                     Confirm password
                   </label>
                   <input
+                    data-testid="settings-confirm-password-input"
                     type="password"
                     name="confirmPassword"
                     value={formData.confirmPassword}
@@ -253,6 +259,7 @@ export default function UserSettings({ onClose }) {
                   />
                 </div>
                 <button
+                  data-testid="settings-save-password-button"
                   type="submit"
                   disabled={loading}
                   className="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 transition disabled:opacity-50 flex items-center justify-center gap-2"
@@ -277,6 +284,7 @@ export default function UserSettings({ onClose }) {
                   Email for alerts
                 </label>
                 <input
+                  data-testid="settings-alert-email-input"
                   type="email"
                   name="alertEmail"
                   value={formData.alertEmail}
@@ -295,6 +303,7 @@ export default function UserSettings({ onClose }) {
         {/* Footer */}
         <div className="bg-gray-800 border-t border-gray-700 px-6 py-4 flex justify-end gap-3">
           <button
+            data-testid="settings-close-button"
             onClick={onClose}
             className="px-6 py-2 bg-gray-700 text-white rounded-lg hover:bg-gray-600 transition"
           >
