@@ -2,8 +2,9 @@
 database.sqlite
 node_modules/
 Mock/
-cypress/
 logs/
 testEmail.js
 test-imports.js
 cypress.config.js
+cypress/screenshots/
+cypress/videos/
