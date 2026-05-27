@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { User, Mail, Lock, Save, AlertCircle, CheckCircle, Bell, X } from 'lucide-react';
-import api from '../frontServices/api';
+import api from '../../frontServices/api';
 
 export default function UserSettings({ onClose }) {
   const [user, setUser] = useState(null);
