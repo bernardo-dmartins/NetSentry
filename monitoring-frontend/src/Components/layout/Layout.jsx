@@ -1,8 +1,8 @@
 import React, { useEffect, useMemo, useState } from "react";
 import Sidebar from "./Sidebar";
 import Header from "./Header";
-import websocketService from "../frontServices/websocket";
-import { settingsAPI } from "../frontServices/api";
+import websocketService from "../../frontServices/websocket";
+import { settingsAPI } from "../../frontServices/api";
 
 const Layout = ({
   children,
