@@ -2,13 +2,14 @@
   "scripts": {
     "dev": "concurrently \"npm run dev --prefix monitoring-backend\" \"npm start --prefix monitoring-frontend\"",
     "start": "npm run dev",
+    "start:test": "concurrently \"cross-env DISABLE_RATE_LIMIT=true npm run dev --prefix monitoring-backend\" \"npm start --prefix monitoring-frontend\"",
     "build": "npm run build --prefix monitoring-frontend",
     "cypress:open": "cypress open",
     "cypress:run": "cypress run",
     "cypress:run:chrome": "cypress run --browser chrome",
     "cypress:run:firefox": "cypress run --browser firefox",
     "cypress:run:headed": "cypress run --headed",
-    "test:e2e": "npm run seed:test && cross-env DISABLE_RATE_LIMIT=true start-server-and-test start:test http://localhost:3000 cypress:run",
+    "test:e2e": "cross-env DISABLE_RATE_LIMIT=true start-server-and-test start:test http://localhost:3000 cypress:run"
     "test:e2e:dev": "cross-env DISABLE_RATE_LIMIT=true start-server-and-test start:test http://localhost:3000 cypress:open",
     "test:e2e:quick": "cypress run"
   },
