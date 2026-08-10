@@ -9,7 +9,7 @@
     "cypress:run:chrome": "cypress run --browser chrome",
     "cypress:run:firefox": "cypress run --browser firefox",
     "cypress:run:headed": "cypress run --headed",
-    "test:e2e": "cross-env DISABLE_RATE_LIMIT=true start-server-and-test start:test http://localhost:3000 cypress:run"
+    "test:e2e": "cross-env DISABLE_RATE_LIMIT=true start-server-and-test start:test http://localhost:3000 cypress:run",
     "test:e2e:dev": "cross-env DISABLE_RATE_LIMIT=true start-server-and-test start:test http://localhost:3000 cypress:open",
     "test:e2e:quick": "cypress run"
   },
