@@ -1,8 +1,8 @@
 {
   "scripts": {
     "dev": "concurrently \"npm run dev --prefix monitoring-backend\" \"npm start --prefix monitoring-frontend\"",
-    "start": "npm run dev",
     "start:test": "concurrently \"cross-env DISABLE_RATE_LIMIT=true npm run dev --prefix monitoring-backend\" \"npm start --prefix monitoring-frontend\"",
+    "start": "npm run dev",
     "build": "npm run build --prefix monitoring-frontend",
     "cypress:open": "cypress open",
     "cypress:run": "cypress run",
