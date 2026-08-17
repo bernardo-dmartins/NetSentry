@@ -5,6 +5,5 @@ Mock/
 logs/
 testEmail.js
 test-imports.js
-cypress.config.js
 cypress/screenshots/
 cypress/videos/
