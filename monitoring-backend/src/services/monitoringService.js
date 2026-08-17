@@ -742,6 +742,54 @@ class MonitoringService {
     return results;
   }
 
+  async syncDevicesWithoutChecks() {
+    const devices = await Device.findAll({
+      include: [
+        {
+          model: DeviceCheck,
+          as: "checks",
+          attributes: ["id"],
+          required: false,
+        },
+      ],
+      order: [["id", "ASC"]],
+    });
+
+    const createdChecks = [];
+
+    for (const device of devices) {
+      if (Array.isArray(device.checks) && device.checks.length > 0) {
+        continue;
+      }
+
+      const defaultCheck = await DeviceCheck.create({
+        deviceId: device.id,
+        name: "Default Check",
+        type: device.checkUrl ? "http" : "ping",
+        isDefault: true,
+        isActive: device.isActive !== false,
+        config: device.checkUrl
+          ? { url: device.checkUrl, port: device.port ?? null }
+          : { host: device.ip },
+        expected: {},
+      });
+
+      createdChecks.push({
+        deviceId: device.id,
+        checkId: defaultCheck.id,
+      });
+    }
+
+    if (createdChecks.length > 0) {
+      logger.info("Legacy devices synced with default checks", {
+        createdChecks: createdChecks.length,
+        deviceIds: createdChecks.map((item) => item.deviceId),
+      });
+    }
+
+    return createdChecks;
+  }
+
   async checkAllDeviceChecks() {
     try {
       const checks = await DeviceCheck.findAll({

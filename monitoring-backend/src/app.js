@@ -18,6 +18,7 @@ const redisClient = require("./config/redis");
 
 const websocketService = require("./services/websocketService");
 const monitoringJob = require("./jobs/monitoringJob");
+const monitoringService = require("./services/monitoringService");
 const emailService = require("./services/emailService");
 
 const authRoutes = require("./routes/auth");
@@ -49,6 +50,7 @@ class Application {
       logger.info("Initializing Monitoring System...");
 
       await this.setupDatabase();
+      await this.syncLegacyMonitoringData();
       await this.setupRedis();
       this.setupEmailService();
       this.setupMiddlewares();
@@ -75,6 +77,23 @@ class Application {
       logger.info("Database connected and synchronized");
     } catch (error) {
       logger.error("Database setup failed:", error?.message || error);
+      throw error;
+    }
+  }
+
+  async syncLegacyMonitoringData() {
+    try {
+      const createdChecks = await monitoringService.syncDevicesWithoutChecks();
+
+      if (createdChecks.length > 0) {
+        logger.info("Legacy monitoring data synchronized", {
+          createdChecks: createdChecks.length,
+        });
+      } else {
+        logger.info("Legacy monitoring data already synchronized");
+      }
+    } catch (error) {
+      logger.error("Failed to synchronize legacy monitoring data:", error);
       throw error;
     }
   }

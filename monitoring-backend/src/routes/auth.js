@@ -85,9 +85,21 @@ const wrap = (fn) => (req, res, next) => {
 router.post('/register', 
   rateLimitMiddleware({
     windowMs: 900000, // 15 minutes
-    max: 3, // max 3 registrations per 15 minutes per IP
+    max:
+      process.env.NODE_ENV === 'test' || process.env.DISABLE_RATE_LIMIT === 'true'
+        ? 1000
+        : 3, // increase limit during tests to avoid blocking
     message: 'Too many registration attempts. Please wait 15 minutes.',
-    keyGenerator: (req) => req.ip,
+    keyGenerator: (req) => {
+      const isTest =
+        process.env.NODE_ENV === 'test' || process.env.DISABLE_RATE_LIMIT === 'true';
+
+      if (isTest) {
+        return `${req.ip}:${req.body?.username || 'unknown'}`;
+      }
+
+      return req.ip;
+    },
     enforceInDevelopment: true,
   }),
   AuthController.validateRegister,
@@ -141,7 +153,8 @@ router.post('/register',
  *       429:
  *         description: Muitas tentativas de login
  */
-const isTestEnv = process.env.NODE_ENV === 'test';
+const isTestEnv =
+  process.env.NODE_ENV === 'test' || process.env.DISABLE_RATE_LIMIT === 'true';
 
 router.post('/login',
   rateLimitMiddleware({

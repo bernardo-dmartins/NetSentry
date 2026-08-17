@@ -26,7 +26,7 @@ Projeto em evolução contínua. A base principal está funcional, mas ainda exi
 - Node.js + Express
 - Socket.IO
 - SQLite + Sequelize
-- Redis (cache e suporte a cenarios de producao)
+- Redis (cache e suporte a cenarios de produção)
 - JWT, bcrypt, Winston
 
 ### Frontend

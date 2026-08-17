@@ -184,7 +184,7 @@ class RedisClient {
     try {
       const keys = Array.isArray(key) ? key : [key];
       const fullKeys = keys.map((k) => this._getKey(k));
-      const deleted = await this.client.del(fullKeys);
+      const deleted = await this.client.del(...fullKeys);
 
       logger.debug(`Redis DEL: ${deleted} key(s) deleted`);
       return deleted;
@@ -387,23 +387,26 @@ class RedisClient {
 
     try {
       const fullPattern = this._getKey(pattern);
-      let cursor = 0;
       let deletedCount = 0;
+      const batch = [];
 
-      do {
-        const result = await this.client.scan(cursor, {
-          MATCH: fullPattern,
-          COUNT: 100,
-        });
+      for await (const key of this.client.scanIterator({
+        MATCH: fullPattern,
+        COUNT: 100,
+      })) {
+        batch.push(key);
 
-        cursor = result.cursor;
-        const keys = result.keys;
-
-        if (keys.length > 0) {
-          await this.client.del(keys);
-          deletedCount += keys.length;
+        if (batch.length >= 100) {
+          await this.client.del(...batch);
+          deletedCount += batch.length;
+          batch.length = 0;
         }
-      } while (cursor !== 0);
+      }
+
+      if (batch.length > 0) {
+        await this.client.del(...batch);
+        deletedCount += batch.length;
+      }
 
       if (deletedCount > 0) {
         logger.info(
