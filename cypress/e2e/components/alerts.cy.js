@@ -137,9 +137,11 @@ describe('Alerts Page', () => {
     cy.wait('@getAlerts');
     cy.contains('3 items').should('be.visible');
 
-    cy.on('window:confirm', () => true);
-    cy.on('window:prompt', () => '30');
+    cy.window().then((win) => {
+      cy.stub(win, 'prompt').returns('30').as('cleanupPrompt');
+    });
     cy.getByTestId('alerts-cleanup-button').click();
+    cy.get('@cleanupPrompt').should('have.been.calledOnce');
     cy.wait('@cleanupAlerts');
     cy.getByTestId('alerts-refresh-button').click();
     cy.wait('@getAlerts');

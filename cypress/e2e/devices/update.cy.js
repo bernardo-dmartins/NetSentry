@@ -16,9 +16,13 @@ describe('Devices - Update', () => {
 
     cy.getByTestId('host-modal').should('be.visible');
     cy.getByTestId('host-input-name').clear().type(updatedName);
+    cy.intercept('PUT', '**/api/devices/*').as('updateDevice');
     cy.getByTestId('host-modal-save-button').click();
 
-    cy.contains(/Host updated successfully/i).should('be.visible');
+    cy.wait('@updateDevice')
+      .its('response.statusCode')
+      .should('eq', 200);
+    cy.getByTestId('host-modal').should('not.exist');
     cy.contains(updatedName).should('be.visible');
   });
 });

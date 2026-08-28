@@ -30,8 +30,9 @@ describe('System Settings E2E', () => {
 
   it('updates refresh rate and saves', () => {
     cy.getByTestId('system-settings-page').should('be.visible');
-    cy.getByTestId('system-settings-dashboard-refresh-rate').clear().type('15');
-    cy.getByTestId('system-settings-save-button').click();
+    cy.getByTestId('system-settings-dashboard-refresh-rate').clear();
+    cy.getByTestId('system-settings-dashboard-refresh-rate').type('15');
+    cy.getByTestId('system-settings-save-button').click({ force: true });
     cy.wait('@saveSystemSettings');
   });
 

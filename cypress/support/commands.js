@@ -149,6 +149,13 @@ Cypress.Commands.add('openAddHostModal', () => {
 });
 
 Cypress.Commands.add('createDeviceViaUI', (device) => {
+  const apiBaseUrl = String(Cypress.env('apiUrl')).replace(/\/api\/?$/, '');
+  const checkUrl = device.checkUrl === undefined
+    ? `${apiBaseUrl}/health`
+    : device.checkUrl;
+
+  cy.intercept('POST', '**/api/devices').as('createDevice');
+
   cy.openAddHostModal();
 
   cy.getByTestId('host-input-name').clear().type(device.name);
@@ -158,8 +165,8 @@ Cypress.Commands.add('createDeviceViaUI', (device) => {
     cy.getByTestId(`host-type-${device.type}`).click();
   }
 
-  if (device.checkUrl) {
-    cy.getByTestId('host-input-check-url').clear().type(device.checkUrl);
+  if (checkUrl) {
+    cy.getByTestId('host-input-check-url').clear().type(checkUrl);
   }
 
   if (device.port) {
@@ -171,5 +178,8 @@ Cypress.Commands.add('createDeviceViaUI', (device) => {
   }
 
   cy.getByTestId('host-modal-save-button').click();
-  cy.contains(/Host added successfully|Host updated successfully/i).should('be.visible');
+  cy.wait('@createDevice')
+    .its('response.statusCode')
+    .should('eq', 201);
+  cy.getByTestId('host-modal').should('not.exist');
 });

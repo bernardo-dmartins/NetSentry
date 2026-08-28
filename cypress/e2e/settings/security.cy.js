@@ -12,7 +12,7 @@ describe('Settings - Security', () => {
     cy.getByTestId('settings-confirm-password-input').type('DifferentPassword123!');
     cy.getByTestId('settings-save-password-button').click();
 
-    cy.contains(/passwords are not the same/i).should('be.visible');
+    cy.contains(/passwords are not the same/i).scrollIntoView().should('be.visible');
   });
 
   it('validates minimum password length', () => {
@@ -23,6 +23,6 @@ describe('Settings - Security', () => {
     cy.getByTestId('settings-confirm-password-input').type('123');
     cy.getByTestId('settings-save-password-button').click();
 
-    cy.contains(/at least 6 characters/i).should('be.visible');
+    cy.contains(/at least 6 characters/i).scrollIntoView().should('be.visible');
   });
 });
