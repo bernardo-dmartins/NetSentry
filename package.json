@@ -1,11 +1,11 @@
 {
   "scripts": {
     "dev": "concurrently \"npm run dev --prefix monitoring-backend\" \"npm start --prefix monitoring-frontend\"",
-    "start:test": "concurrently \"cross-env DISABLE_RATE_LIMIT=true npm run dev --prefix monitoring-backend\" \"npm start --prefix monitoring-frontend\"",
+    "start:test": "concurrently --kill-others \"cross-env NODE_ENV=test DISABLE_RATE_LIMIT=true DB_STORAGE=:memory: CORS_ORIGIN=http://localhost:3000 EMAIL_USER= EMAIL_PASSWORD= JWT_SECRET=netsentry-e2e-only-secret npm start --prefix monitoring-backend\" \"cross-env BROWSER=none npm start --prefix monitoring-frontend\"",
     "start": "npm run dev",
     "build": "npm run build --prefix monitoring-frontend",
     "cypress:open": "cypress open",
-    "cypress:run": "cypress run",
+    "cypress:run": "cypress run --browser chrome",
     "cypress:run:chrome": "cypress run --browser chrome",
     "cypress:run:firefox": "cypress run --browser firefox",
     "cypress:run:headed": "cypress run --headed",

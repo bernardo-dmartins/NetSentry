@@ -7,3 +7,4 @@ testEmail.js
 test-imports.js
 cypress/screenshots/
 cypress/videos/
+cypress/downloads/
