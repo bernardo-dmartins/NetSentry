@@ -3,7 +3,6 @@ const router = express.Router();
 const AuthController = require('../controllers/authControllers');
 const { authMiddleware, rateLimitMiddleware } = require('../middleware/authJWT');
 
-// Wrapper para métodos estáticos
 const wrap = (fn) => (req, res, next) => {
   Promise.resolve(fn(req, res, next)).catch(next);
 };
@@ -86,9 +85,22 @@ const wrap = (fn) => (req, res, next) => {
 router.post('/register', 
   rateLimitMiddleware({
     windowMs: 900000, // 15 minutes
-    max: 3, // max 3 registrations per 15 minutes per IP
+    max:
+      process.env.NODE_ENV === 'test' || process.env.DISABLE_RATE_LIMIT === 'true'
+        ? 1000
+        : 3, // increase limit during tests to avoid blocking
     message: 'Too many registration attempts. Please wait 15 minutes.',
-    keyGenerator: (req) => req.ip
+    keyGenerator: (req) => {
+      const isTest =
+        process.env.NODE_ENV === 'test' || process.env.DISABLE_RATE_LIMIT === 'true';
+
+      if (isTest) {
+        return `${req.ip}:${req.body?.username || 'unknown'}`;
+      }
+
+      return req.ip;
+    },
+    enforceInDevelopment: true,
   }),
   AuthController.validateRegister,
   wrap(AuthController.register)
@@ -141,14 +153,16 @@ router.post('/register',
  *       429:
  *         description: Muitas tentativas de login
  */
-const isTestEnv = process.env.NODE_ENV === 'test';
+const isTestEnv =
+  process.env.NODE_ENV === 'test' || process.env.DISABLE_RATE_LIMIT === 'true';
 
 router.post('/login',
   rateLimitMiddleware({
     windowMs: 60000, // 1 minute
     max: isTestEnv ? 1000 : 5, // increase limit during tests to avoid blocking
     message: 'Too many login attempts. Please wait 1 minute.',
-    keyGenerator: (req) => `${req.ip}:${req.body.username || 'unknown'}`
+    keyGenerator: (req) => `${req.ip}:${req.body.username || 'unknown'}`,
+    enforceInDevelopment: true,
 
   }),
   AuthController.validateLogin,
@@ -237,7 +251,8 @@ router.put('/profile',
     windowMs: 60000, // 1 minute
     max: 10, // max 10 updates per minute
     message: 'Too many update attempts. Please wait 1 minute.',
-    keyGenerator: (req) => `update:${req.user.id}`
+    keyGenerator: (req) => `update:${req.user.id}`,
+    enforceInDevelopment: true,
   }),
   wrap(AuthController.updateProfile)
 );
@@ -247,6 +262,25 @@ router.put('/profile',
  * /api/auth/logout:
  *   post:
  *     summary: User logout
+ *     tags: [Auth]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Logout successful
+ *       401:
+ *         description: Not authenticated
+ */
+router.post('/logout',
+  authMiddleware,
+  wrap(AuthController.logout)
+);
+
+/**
+ * @swagger
+ * /api/auth/sessions:
+ *   get:
+ *     summary: Get active sessions (admin only)
  *     tags: [Auth]
  *     security:
  *       - bearerAuth: []

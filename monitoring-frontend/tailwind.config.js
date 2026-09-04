@@ -1,4 +1,3 @@
-/** @type {import('tailwindcss').Config} */
 module.exports = {
   content: [
     "./src/**/*.{js,jsx,ts,tsx}",
@@ -6,7 +5,6 @@ module.exports = {
   theme: {
     extend: {
       colors: {
-        // Paleta principal do NetSentry (tons de cinza escuro)
         gray: {
           50: '#f9fafb',
           100: '#f3f4f6',
@@ -20,25 +18,23 @@ module.exports = {
           900: '#111827',
           950: '#030712',
         },
-        // Cores de ação
         primary: {
-          DEFAULT: '#3b82f6', // blue-500
-          dark: '#2563eb',    // blue-600
-          light: '#60a5fa',   // blue-400
+          DEFAULT: '#3b82f6',
+          dark: '#2563eb',
+          light: '#60a5fa',
         },
-        // Status
         success: {
-          DEFAULT: '#10b981', // green-500
+          DEFAULT: '#10b981',
           dark: '#059669',
           light: '#34d399',
         },
         danger: {
-          DEFAULT: '#ef4444', // red-500
+          DEFAULT: '#ef4444',
           dark: '#dc2626',
           light: '#f87171',
         },
         warning: {
-          DEFAULT: '#f59e0b', // yellow-500
+          DEFAULT: '#f59e0b',
           dark: '#d97706',
           light: '#fbbf24',
         },

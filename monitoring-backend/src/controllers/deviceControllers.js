@@ -1,9 +1,14 @@
 const { body, validationResult } = require('express-validator');
 const { Op } = require('sequelize');
 const Device = require('../models/Device');
+const DeviceCheck = require('../models/DeviceCheck');
 const logger = require('../utils/logger');
 const monitoringService = require('../services/monitoringService');
 const redisClient = require('../config/redis');
+const supportsDeviceOwnership = Object.prototype.hasOwnProperty.call(
+  Device.rawAttributes || {},
+  "userId",
+);
 
 class DeviceController {
   static validateDevice = [
@@ -15,9 +20,10 @@ class DeviceController {
   static async getAll(req, res) {
     try {
       const { status, type, search } = req.query;
+      const userId = req.user?.id;
 
       // Create cache key based on query parameters
-      const cacheKey = `devices:list:${status || 'all'}:${type || 'all'}:${search || 'none'}`;
+      const cacheKey = `devices:list:user:${userId}:${status || 'all'}:${type || 'all'}:${search || 'none'}`;
 
       // Try to get from cache first
       const cachedData = await redisClient.get(cacheKey);
@@ -30,6 +36,9 @@ class DeviceController {
 
       // Build filters
       const where = {};
+      if (supportsDeviceOwnership) {
+        where.userId = userId;
+      }
 
       if (status && status !== 'all') {
         where.status = status;
@@ -48,7 +57,34 @@ class DeviceController {
 
       const devices = await Device.findAll({
         where,
+        include: [
+          {
+            model: DeviceCheck,
+            as: 'checks',
+            attributes: ['id', 'name', 'type', 'lastStatus', 'lastCheckedAt', 'isActive']
+          }
+        ],
         order: [['name', 'ASC']]
+      });
+
+      const devicesWithChecksSummary = devices.map((device) => {
+        const plainDevice = device.toJSON();
+        const checks = Array.isArray(plainDevice.checks) ? plainDevice.checks : [];
+        const activeChecks = checks.filter((check) => check.isActive !== false);
+
+        const summary = {
+          total: checks.length,
+          active: activeChecks.length,
+          online: activeChecks.filter((c) => c.lastStatus === 'online').length,
+          offline: activeChecks.filter((c) => c.lastStatus === 'offline').length,
+          warning: activeChecks.filter((c) => c.lastStatus === 'warning').length,
+          unknown: activeChecks.filter((c) => c.lastStatus === 'unknown').length
+        };
+
+        return {
+          ...plainDevice,
+          checksSummary: summary
+        };
       });
 
       const stats = {
@@ -60,7 +96,7 @@ class DeviceController {
 
       const responseData = {
         success: true,
-        data: devices,
+        data: devicesWithChecksSummary,
         stats
       };
 
@@ -81,6 +117,7 @@ class DeviceController {
   static async getById(req, res) {
     try {
       const { id } = req.params;
+      const userId = req.user?.id;
 
       // Try cache first
       const cacheKey = `device:${id}`;
@@ -100,6 +137,13 @@ class DeviceController {
         return res.status(404).json({
           success: false,
           message: 'Device not found'
+        });
+      }
+
+      if (supportsDeviceOwnership && device.userId !== userId) {
+        return res.status(403).json({
+          success: false,
+          message: 'Unauthorized: Device does not belong to this user'
         });
       }
 
@@ -132,6 +176,7 @@ class DeviceController {
       }
 
       const { name, ip, type, checkUrl, port, description } = req.body;
+      const userId = req.user?.id;
 
       // Check if IP already exists
       const existingDevice = await Device.findOne({ where: { ip } });
@@ -143,17 +188,34 @@ class DeviceController {
       }
 
       // Create device
-      const device = await Device.create({
+      const createPayload = {
         name,
         ip,
         type,
         checkUrl,
         port,
         description
+      };
+      if (supportsDeviceOwnership) {
+        createPayload.userId = userId;
+      }
+
+      const device = await Device.create(createPayload);
+
+      // Create default check for backward compatibility
+      const defaultCheck = await DeviceCheck.create({
+        deviceId: device.id,
+        name: "Default Check",
+        type: checkUrl ? "http" : "ping",
+        isDefault: true,
+        config: checkUrl
+          ? { url: checkUrl, port: port ?? null }
+          : { host: device.ip },
+        expected: {}
       });
 
       // Perform first check
-      await monitoringService.checkDevice(device);
+      await monitoringService.checkDeviceCheck(defaultCheck, device);
 
       // Invalidate all devices list caches
       await redisClient.invalidatePattern('devices:list:*');
@@ -180,6 +242,7 @@ class DeviceController {
     try {
       const { id } = req.params;
       const { name, ip, type, checkUrl, port, description, isActive } = req.body;
+      const userId = req.user?.id;
 
       const device = await Device.findByPk(id);
 
@@ -187,6 +250,13 @@ class DeviceController {
         return res.status(404).json({
           success: false,
           message: 'Device not found'
+        });
+      }
+
+      if (supportsDeviceOwnership && device.userId !== userId) {
+        return res.status(403).json({
+          success: false,
+          message: 'Unauthorized: Device does not belong to this user'
         });
       }
 
@@ -215,6 +285,41 @@ class DeviceController {
         isActive: isActive !== undefined ? isActive : device.isActive
       });
 
+      const defaultCheck = await DeviceCheck.findOne({
+        where: { deviceId: device.id, isDefault: true }
+      });
+
+      if (defaultCheck) {
+        const nextType = (checkUrl !== undefined ? checkUrl : device.checkUrl)
+          ? "http"
+          : "ping";
+        const nextConfig = nextType === "http"
+          ? {
+              url: checkUrl !== undefined ? checkUrl : device.checkUrl,
+              port: port !== undefined ? port : device.port
+            }
+          : { host: ip || device.ip };
+
+        await defaultCheck.update({
+          type: nextType,
+          config: nextConfig
+        });
+      } else {
+        const checkCount = await DeviceCheck.count({ where: { deviceId: device.id } });
+        if (checkCount === 0) {
+          await DeviceCheck.create({
+            deviceId: device.id,
+            name: "Default Check",
+            type: checkUrl ? "http" : "ping",
+            isDefault: true,
+            config: checkUrl
+              ? { url: checkUrl, port: port ?? null }
+              : { host: ip || device.ip },
+            expected: {}
+          });
+        }
+      }
+
       // Invalidate caches
       await redisClient.del(`device:${id}`);
       await redisClient.invalidatePattern('devices:list:*');
@@ -240,6 +345,7 @@ class DeviceController {
   static async delete(req, res) {
     try {
       const { id } = req.params;
+      const userId = req.user?.id;
 
       const device = await Device.findByPk(id);
 
@@ -247,6 +353,13 @@ class DeviceController {
         return res.status(404).json({
           success: false,
           message: 'Device not found'
+        });
+      }
+
+      if (supportsDeviceOwnership && device.userId !== userId) {
+        return res.status(403).json({
+          success: false,
+          message: 'Unauthorized: Device does not belong to this user'
         });
       }
 
@@ -276,6 +389,7 @@ class DeviceController {
   static async checkDevice(req, res) {
     try {
       const { id } = req.params;
+      const userId = req.user?.id;
 
       const device = await Device.findByPk(id);
 
@@ -283,6 +397,13 @@ class DeviceController {
         return res.status(404).json({
           success: false,
           message: 'Device not found'
+        });
+      }
+
+      if (supportsDeviceOwnership && device.userId !== userId) {
+        return res.status(403).json({
+          success: false,
+          message: 'Unauthorized: Device does not belong to this user'
         });
       }
 
@@ -327,6 +448,7 @@ class DeviceController {
       }
 
       const devices = await Device.findAll();
+      const checks = await DeviceCheck.findAll();
 
       const stats = {
         total: devices.length,
@@ -341,6 +463,13 @@ class DeviceController {
           router: devices.filter(d => d.type === 'router').length,
           pc: devices.filter(d => d.type === 'pc').length,
           other: devices.filter(d => d.type === 'other').length
+        },
+        checks: {
+          total: checks.length,
+          online: checks.filter(c => c.lastStatus === 'online').length,
+          offline: checks.filter(c => c.lastStatus === 'offline').length,
+          warning: checks.filter(c => c.lastStatus === 'warning').length,
+          unknown: checks.filter(c => c.lastStatus === 'unknown').length
         }
       };
 

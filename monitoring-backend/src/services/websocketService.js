@@ -3,6 +3,7 @@ const jwt = require('jsonwebtoken');
 const logger = require('../utils/logger');
 const Device = require('../models/Device');
 const Alert = require('../models/Alert');
+const DeviceCheck = require('../models/DeviceCheck');
 
 class WebSocketService {
   constructor() {
@@ -77,6 +78,9 @@ class WebSocketService {
       username: socket.username,
       role: socket.role
     });
+
+    // Adicionar à sala do usuário para notificações direcionadas
+    socket.join(`user:${socket.userId}`);
 
     // Configurar listeners de eventos
     this.setupEventListeners(socket);
@@ -328,6 +332,7 @@ class WebSocketService {
   async calculateStats() {
     try {
       const devices = await Device.findAll();
+      const checks = await DeviceCheck.findAll();
       
       const stats = {
         total: devices.length,
@@ -336,7 +341,15 @@ class WebSocketService {
         warning: devices.filter(d => d.status === 'warning').length
       };
 
-      return { devices: stats };
+      const checkStats = {
+        total: checks.length,
+        online: checks.filter(c => c.lastStatus === 'online').length,
+        offline: checks.filter(c => c.lastStatus === 'offline').length,
+        warning: checks.filter(c => c.lastStatus === 'warning').length,
+        unknown: checks.filter(c => c.lastStatus === 'unknown').length
+      };
+
+      return { devices: stats, checks: checkStats };
     } catch (error) {
       logger.error('Error calculating stats:', error);
       return null;
@@ -407,6 +420,13 @@ class WebSocketService {
     });
 
     logger.debug(`Stats broadcasted to ${this.connectedClients.size} clients`);
+  }
+
+  sendToUser(userId, event, data) {
+    if (!this.io) return;
+
+    // Enviar para todas as conexões do usuário
+    this.io.to(`user:${userId}`).emit(event, data);
   }
 
   /**

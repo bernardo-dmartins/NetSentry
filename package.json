@@ -1,13 +1,15 @@
 {
   "scripts": {
+    "dev": "concurrently \"npm run dev --prefix monitoring-backend\" \"npm start --prefix monitoring-frontend\"",
+    "start:test": "concurrently --kill-others \"cross-env NODE_ENV=test DISABLE_RATE_LIMIT=true DB_STORAGE=:memory: CORS_ORIGIN=http://localhost:3000 EMAIL_USER= EMAIL_PASSWORD= JWT_SECRET=netsentry-e2e-only-secret npm start --prefix monitoring-backend\" \"cross-env BROWSER=none npm start --prefix monitoring-frontend\"",
+    "start": "npm run dev",
     "build": "npm run build --prefix monitoring-frontend",
-    "seed:test": "node monitoring-backend/scripts/seedTestUser.js",
     "cypress:open": "cypress open",
-    "cypress:run": "cypress run",
+    "cypress:run": "cypress run --browser chrome",
     "cypress:run:chrome": "cypress run --browser chrome",
     "cypress:run:firefox": "cypress run --browser firefox",
     "cypress:run:headed": "cypress run --headed",
-    "test:e2e": "npm run seed:test && cross-env DISABLE_RATE_LIMIT=true start-server-and-test start:test http://localhost:3000 cypress:run",
+    "test:e2e": "cross-env DISABLE_RATE_LIMIT=true start-server-and-test start:test http://localhost:3000 cypress:run",
     "test:e2e:dev": "cross-env DISABLE_RATE_LIMIT=true start-server-and-test start:test http://localhost:3000 cypress:open",
     "test:e2e:quick": "cypress run"
   },

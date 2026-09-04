@@ -10,7 +10,7 @@ const options = {
       description: 'API for real-time monitoring of hosts with alerts and notifications',
       contact: {
         name: 'Bernardo Martins',
-        email: 'contato@example.com'
+        email: 'netsentry.app@gmail.com'
       }
     },
     servers: [
@@ -19,7 +19,7 @@ const options = {
         description: 'Development Server'
       },
       {
-        url: 'https://seu-app.railway.app',
+        url: 'https://netsentry.onrender.com/',
         description: 'Production Server'
       }
     ],
@@ -63,7 +63,7 @@ const options = {
           properties: {
             id: {
               type: 'integer',
-              description: 'Divece ID'
+              description: 'Device ID'
             },
             name: {
               type: 'string',
@@ -71,7 +71,7 @@ const options = {
             },
             ip: {
               type: 'string',
-              description: 'IP adress'
+              description: 'IP address'
             },
             type: {
               type: 'string',
@@ -124,6 +124,50 @@ const options = {
               description: 'if it was recognized'
             }
           }
+        },
+        DeviceCheck: {
+          type: 'object',
+          properties: {
+            id: { type: 'integer', description: 'Check ID' },
+            deviceId: { type: 'integer', description: 'Device ID' },
+            name: { type: 'string', description: 'Check name' },
+            type: {
+              type: 'string',
+              enum: ['ping', 'tcp_port', 'http', 'ssl_certificate', 'dns', 'keyword_match']
+            },
+            isActive: { type: 'boolean' },
+            isDefault: { type: 'boolean' },
+            intervalSeconds: { type: 'integer' },
+            timeoutMs: { type: 'integer' },
+            warningThreshold: { type: 'integer' },
+            criticalThreshold: { type: 'integer' },
+            config: { type: 'object' },
+            expected: { type: 'object' },
+            lastStatus: {
+              type: 'string',
+              enum: ['online', 'offline', 'warning', 'unknown']
+            },
+            lastResponseTime: { type: 'integer' },
+            lastCheckedAt: { type: 'string', format: 'date-time' }
+          }
+        },
+        CheckResult: {
+          type: 'object',
+          properties: {
+            id: { type: 'integer' },
+            deviceCheckId: { type: 'integer' },
+            status: {
+              type: 'string',
+              enum: ['online', 'offline', 'warning', 'unknown']
+            },
+            responseTime: { type: 'integer' },
+            statusCode: { type: 'integer' },
+            error: { type: 'string' },
+            packetLoss: { type: 'number' },
+            resolvedValue: { type: 'string' },
+            metadata: { type: 'object' },
+            checkedAt: { type: 'string', format: 'date-time' }
+          }
         }
       }
     },
@@ -134,11 +178,15 @@ const options = {
       },
       {
         name: 'Devices',
-        description: 'device management'
+        description: 'Device management'
       },
       {
         name: 'Alerts',
         description: 'Alerts management'
+      },
+      {
+        name: 'Checks',
+        description: 'Device checks'
       }
     ]
   },

@@ -4,20 +4,43 @@ const Device = require("../models/Device");
 const logger = require("../utils/logger");
 
 class AlertController {
-  // List all alerts
   // List alerts + statistics
-static async getAll(req, res) {
-  try {
-    const alerts = await Alert.findAll({
-      include: [
-        {
-          model: Device,
-          as: "deviceInfo",
-          attributes: ["id", "name", "ip", "type"],
-        },
-      ],
-      order: [["timestamp", "DESC"]],
-    });
+  static async getAll(req, res) {
+    try {
+      const { level, acknowledged, resolved, limit, search } = req.query;
+      const where = {};
+
+      if (level) {
+        where.level = level;
+      }
+
+      if (acknowledged !== undefined) {
+        where.acknowledged = acknowledged === "true" || acknowledged === true;
+      }
+
+      if (resolved !== undefined) {
+        where.resolved = resolved === "true" || resolved === true;
+      }
+
+      if (search) {
+        where[Op.or] = [
+          { device: { [Op.like]: `%${search}%` } },
+          { message: { [Op.like]: `%${search}%` } },
+        ];
+      }
+
+      const alerts = await Alert.findAll({
+        where,
+        include: [
+          {
+            model: Device,
+            as: "deviceInfo",
+            attributes: ["id", "name", "ip", "type"],
+          },
+        ],
+        order: [["timestamp", "DESC"]],
+        limit: limit ? parseInt(limit, 10) : undefined,
+      });
 
     // Example: statistics (if already calculated before)
     const stats = {
@@ -26,21 +49,21 @@ static async getAll(req, res) {
       unresolved: alerts.filter(a => !a.resolved).length,
     };
 
-    return res.status(200).json({
-      message: "Alerts successfully listed",
-      data: alerts,
-      meta: stats, 
-    });
-  } catch (error) {
-    logger.error("Error listing alerts:", error);
-    return res.status(500).json({
-      error: {
-        code: "ALERT_LIST_ERROR",
-        message: "Error listing alerts",
-      },
-    });
+      return res.status(200).json({
+        message: "Alerts successfully listed",
+        data: alerts,
+        meta: stats,
+      });
+    } catch (error) {
+      logger.error("Error listing alerts:", error);
+      return res.status(500).json({
+        error: {
+          code: "ALERT_LIST_ERROR",
+          message: "Error listing alerts",
+        },
+      });
+    }
   }
-}
 
 static async getById(req, res) {
   try {
